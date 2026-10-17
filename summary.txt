@@ -1,0 +1,34 @@
+Status: Completed Phase 2 + ปรับปรุงระบบคัดลอก Summary เข้า Clipboard (Git: init แล้ว รอ commit/push)
+
+Completed Tasks:
+- สร้างสคริปต์ scripts/copy-summary.js คัดลอก summary.txt เข้า Clipboard ด้วย Node.js
+  - Windows: ส่งข้อความให้ clip.exe เป็น UTF-16LE → ภาษาไทยไม่เพี้ยน และไม่มีอักขระ BOM ติดไปใน Clipboard
+  - Mac ใช้ pbcopy / Linux ใช้ xclip
+- เพิ่มคำสั่ง npm run copy-summary ใน package.json
+- เพิ่มกฎใน CLAUDE.md: หลังเขียน summary.txt ทุกครั้งให้รัน npm run copy-summary
+- ปิดกฎ ESLint no-require-imports เฉพาะไฟล์ใน scripts/ (สคริปต์ Node แบบ CommonJS)
+- อัปเดต ../CLAUDE-RULES.md เป็นฉบับสมบูรณ์ (เพิ่ม Quality Check และ Automated Output)
+- git init (branch main) และ stage ไฟล์ไว้แล้ว
+- ตรวจสอบแล้ว: npm run lint ผ่าน, npm run build ผ่าน, ทดสอบคัดลอกภาษาไทยเข้า Clipboard ถูกต้อง
+
+Files Modified / Created:
+- สร้างใหม่: scripts/copy-summary.js
+- แก้ไข: package.json, eslint.config.mjs, CLAUDE.md, summary.txt
+- แก้ไข (นอกโปรเจกต์): ../CLAUDE-RULES.md
+
+ข้อควรระวัง:
+- ยังไม่ได้ commit/push: รอชื่อผู้ commit (git user.name) และ URL ของ GitHub repository
+- เครื่องนี้ไม่มี GitHub CLI (gh) — push ครั้งแรกจะต้องล็อกอินผ่าน Git Credential Manager
+- การส่ง LINE ยังไม่มีสคริปต์ และ LINE Notify ปิดบริการแล้ว (31 มี.ค. 2025) ต้องใช้ LINE Messaging API แทน
+- npm audit แจ้ง high severity 5 รายการ ยังไม่ได้แก้
+
+Next Step:
+- Commit และ push ขึ้น GitHub เมื่อได้ชื่อผู้ commit และ URL ของ repo
+- Phase 3: หน้า Detail รายตัว (/stocks/[symbol]) พร้อมกราฟปันผล 5 ปี, Yield ย้อนหลังเทียบราคาปัจจุบัน,
+  กราฟ Revenue/Expenses/Net Profit 5 ปี (Recharts), ค่าสำคัญ และช่อง Note ส่วนตัว
+
+Prompt for Gemini:
+โปรเจกต์ Thai Stock VI Dashboard (Next.js 16 + Tailwind v4 + TypeScript) ทำ Phase 1-2 เสร็จแล้ว (Dashboard, ตารางหุ้น, VI Screening).
+รอบนี้เพิ่มสคริปต์ scripts/copy-summary.js (npm run copy-summary) คัดลอก summary.txt เข้า Clipboard โดยรองรับภาษาไทยบน Windows
+และ init git repo แล้ว แต่ยังไม่ได้ commit/push เพราะรอชื่อผู้ commit และ URL ของ GitHub repo.
+ขั้นถัดไป: push ขึ้น GitHub แล้วเริ่ม Phase 3 (หน้า Detail รายตัวพร้อมกราฟ 5 ปีด้วย Recharts).

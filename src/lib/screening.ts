@@ -1,0 +1,83 @@
+import type { Stock } from "@/types/stock";
+
+export type ThresholdField = "pe" | "pbv" | "dividendYield" | "roe" | "de";
+
+interface ThresholdCriterion {
+  kind: "threshold";
+  id: ThresholdField;
+  label: string;
+  op: "<" | ">";
+  unit: string;
+  step: number;
+}
+
+interface CheckCriterion {
+  kind: "check";
+  id: "steadyDividend" | "steadyProfit";
+  label: string;
+  test: (stock: Stock) => boolean;
+}
+
+export type Criterion = ThresholdCriterion | CheckCriterion;
+export type CriterionId = Criterion["id"];
+/** ค่า NaN = ผู้ใช้ลบตัวเลขออก → ข้ามเกณฑ์นั้นไป */
+export type Thresholds = Record<ThresholdField, number>;
+
+export const criteria: Criterion[] = [
+  { kind: "threshold", id: "pe", label: "P/E", op: "<", unit: "เท่า", step: 1 },
+  { kind: "threshold", id: "pbv", label: "P/BV", op: "<", unit: "เท่า", step: 0.1 },
+  { kind: "threshold", id: "dividendYield", label: "Dividend Yield", op: ">", unit: "%", step: 0.5 },
+  { kind: "threshold", id: "roe", label: "ROE", op: ">", unit: "%", step: 1 },
+  { kind: "threshold", id: "de", label: "D/E", op: "<", unit: "เท่า", step: 0.1 },
+  {
+    kind: "check",
+    id: "steadyDividend",
+    label: "จ่ายปันผลทุกปี (5 ปี)",
+    test: (stock) => stock.history.every((year) => year.dividendPerShare > 0),
+  },
+  {
+    kind: "check",
+    id: "steadyProfit",
+    label: "มีกำไรทุกปี (5 ปี)",
+    test: (stock) => stock.history.every((year) => year.netProfit > 0),
+  },
+];
+
+export const defaultThresholds: Thresholds = {
+  pe: 15,
+  pbv: 1.5,
+  dividendYield: 4,
+  roe: 10,
+  de: 1,
+};
+
+/** เกณฑ์ VI พื้นฐาน: P/E < 15, Yield > 4%, ROE > 10% */
+export const BASIC_VI_PRESET: CriterionId[] = ["pe", "dividendYield", "roe"];
+
+export function passesCriterion(stock: Stock, criterion: Criterion, thresholds: Thresholds) {
+  if (criterion.kind === "check") return criterion.test(stock);
+
+  const limit = thresholds[criterion.id];
+  if (Number.isNaN(limit)) return true;
+
+  const value = stock[criterion.id];
+  // ค่าติดลบ (เช่น P/E ของบริษัทขาดทุน) ไม่ถือว่า "ต่ำ"
+  return criterion.op === "<" ? value >= 0 && value < limit : value > limit;
+}
+
+export function screenStocks(
+  stocks: Stock[],
+  enabled: CriterionId[],
+  thresholds: Thresholds = defaultThresholds,
+) {
+  const active = criteria.filter((criterion) => enabled.includes(criterion.id));
+  return stocks.filter((stock) =>
+    active.every((criterion) => passesCriterion(stock, criterion, thresholds)),
+  );
+}
+
+export function describeCriterion(criterion: Criterion, thresholds: Thresholds = defaultThresholds) {
+  if (criterion.kind === "check") return criterion.label;
+  const unit = criterion.unit === "%" ? "%" : ` ${criterion.unit}`;
+  return `${criterion.label} ${criterion.op} ${thresholds[criterion.id]}${unit}`;
+}
