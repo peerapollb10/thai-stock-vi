@@ -1,35 +1,27 @@
-Status: Completed Phase 4 — Supabase Watchlist + Note ใช้งานได้จริง และ push ขึ้น GitHub แล้ว
+Status: Dev server พร้อมใช้งานที่ http://localhost:3000
 
 Completed Tasks:
-- npm run check-supabase ผ่านครบ 6 ข้อ: RLS กันผู้ที่ไม่ได้ล็อกอิน, Anonymous Sign-In, เพิ่ม/อ่าน Watchlist,
-  บันทึก Note (upsert), ลบข้อมูลทดสอบ
-- ทดสอบในเบราว์เซอร์ (production build): หน้า /watchlist โหลดสำเร็จ (Empty state), หน้า /stocks/PTT
-  มีปุ่ม "เพิ่มเข้า Watchlist" และช่อง Note พร้อมใช้งาน
-- npm run lint ผ่าน, npm run build ผ่าน
-- task.md: ติ๊ก [x] Phase 4 แล้ว — ครบทุก Phase
-- Commit + push ขึ้น https://github.com/peerapollb10/thai-stock-vi รวมงานที่ค้างทั้งหมด:
-  - Phase 4: Supabase client, Anonymous Sign-In, ปุ่มดาว, หน้า /watchlist, Note บน Supabase, ย้าย Note เดิมจาก LocalStorage
-  - สคริปต์ notify, send-line, check-supabase / .env.example / supabase/schema.sql / .claude/settings.json
-  - .env.local ไม่ถูก commit (อยู่ใน .gitignore)
+- npm run dev: เซิร์ฟเวอร์พัฒนาเปิดอยู่แล้วตั้งแต่คำสั่งก่อนหน้า (Next.js 16.4.2 Turbopack, Ready in 742ms)
+  ตรวจซ้ำด้วย HTTP request ได้ 200 จึงไม่ได้เปิดซ้ำ (เปิดซ้ำจะชนพอร์ต 3000)
+  - Local: http://localhost:3000 / Network: http://192.168.3.78:3000
+  - โหลดค่า Supabase และ LINE จาก .env.local แล้ว
+- รอบนี้ไม่ได้แก้โค้ดแอป จึงไม่ได้รัน lint/build ใหม่ (ล่าสุด commit 9549a4b ผ่านทั้งคู่)
 
 Files Modified / Created:
-- แก้ไข: task.md, summary.txt
-- Commit รวม: src/lib/supabase/client.ts, src/lib/notes.ts, src/components/user-data/*,
-  src/components/stock-detail/PrivateNote.tsx, src/components/stocks/StockTable.tsx,
-  src/components/layout/AppShell.tsx, src/app/stocks/[symbol]/page.tsx, src/app/watchlist/page.tsx,
-  scripts/notify.js, scripts/send-line.js, scripts/check-supabase.js, supabase/schema.sql,
-  .env.example, .gitignore, .claude/settings.json, package.json, package-lock.json
+- สร้าง AGENTS.md (root ของโปรเจกต์) — Claude ไม่ได้สร้างเอง: next dev สร้างอัตโนมัติตอนเปิดเซิร์ฟเวอร์
+  เนื้อหา 9 บรรทัด (บล็อก nextjs-agent-rules) เตือน AI ให้อ่านเอกสารใน node_modules/next/dist/docs/
+  เพราะ Next.js 16 มี API ที่เปลี่ยนไป; ถ้าลบ next dev จะสร้างใหม่ ปิดได้ด้วย agentRules: false ใน next.config.ts
+- แก้ไข summary.txt — เขียนทับด้วยสรุปรอบนี้
+- ยังไม่ได้ commit จากรอบก่อน: CLAUDE.md (เพิ่ม Finish Protocol + Detailed Code Changes)
 
 Next Step:
-- ลองใช้งานจริง: กดดาว, พิมพ์ Note แล้วรีเฟรชหน้า เพื่อยืนยันว่าข้อมูลยังอยู่
-- (ทางเลือก) ผูกบัญชี Anonymous กับอีเมล เพื่อใช้ Watchlist/Note ข้ามเครื่องและไม่หายเมื่อล้าง cookie
-- (ทางเลือก) เปลี่ยน Mock Data เป็นข้อมูลหุ้นจริง, จัดการ npm audit
-- check-supabase สร้างผู้ใช้ Anonymous ทดสอบทุกครั้งที่รัน — ลบได้ที่ Supabase → Authentication → Users
+- เปิด http://localhost:3000 ทดสอบ: กดดาวในหน้า /stocks, ดูหน้า /watchlist, พิมพ์ Note ในหน้าหุ้นแล้วรีเฟรช
+- ตัดสินใจว่าจะ commit AGENTS.md หรือปิดด้วย agentRules: false
+- commit CLAUDE.md, summary.txt (และ AGENTS.md ถ้าเก็บไว้)
 
 Prompt for Gemini:
-โปรเจกต์ Thai Stock VI Dashboard (Next.js 16 + Tailwind v4 + TypeScript + Recharts + Supabase) ทำครบทั้ง 4 Phase แล้ว
-และ push ขึ้น GitHub. Phase 4: Anonymous Sign-In อัตโนมัติ, Watchlist (ปุ่มดาวในตาราง/หน้า Detail + หน้า /watchlist),
-Note ส่วนตัวบันทึกลง Supabase แบบ auto-save และย้าย Note เดิมจาก LocalStorage อัตโนมัติ, ตารางมี RLS.
-ผ่าน check-supabase ครบ, lint/build ผ่าน. ขั้นถัดไปที่เป็นไปได้: ผูกบัญชีกับอีเมล หรือเปลี่ยนเป็นข้อมูลหุ้นจริง.
+โปรเจกต์ Thai Stock VI Dashboard (Next.js 16 + Supabase) ทำครบ 4 Phase และอยู่บน GitHub แล้ว.
+ตอนนี้เปิด dev server ที่ http://localhost:3000 เพื่อทดสอบ Watchlist และ Note บน Supabase ด้วยตัวเอง.
+next dev สร้างไฟล์ AGENTS.md อัตโนมัติ (ยังไม่ได้ commit) และ CLAUDE.md ที่เพิ่ม Finish Protocol ยังรอ commit.
 
-Last Updated: 2026-10-17 11:49:30
+Last Updated: 2026-10-17 12:29:19
