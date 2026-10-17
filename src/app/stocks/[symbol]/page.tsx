@@ -6,6 +6,7 @@ import {
   Coins,
   Gauge,
   Landmark,
+  LineChart,
   PiggyBank,
   Scale,
   Table2,
@@ -16,26 +17,29 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { DataTable } from "@/components/stock-detail/DataTable";
 import { DividendChart } from "@/components/stock-detail/DividendChart";
 import { FinancialsChart } from "@/components/stock-detail/FinancialsChart";
+import { PriceChart } from "@/components/stock-detail/PriceChart";
 import { PrivateNote } from "@/components/stock-detail/PrivateNote";
 import { Section } from "@/components/stock-detail/Section";
 import { WatchlistButton } from "@/components/user-data/WatchlistButton";
-import { getStockBySymbol, MOCK_DATA_AS_OF, mockStocks } from "@/data/mockStocks";
 import { average, calcHistoricalYields, type HistoricalYield } from "@/lib/analytics";
 import { formatMarketCap, formatNumber, formatPercent } from "@/lib/format";
+import { getPriceHistory, getStockBySymbol, getStocks, latestUpdate } from "@/lib/market-data";
 import type { YearlyFinancials } from "@/types/stock";
 
-export function generateStaticParams() {
-  return mockStocks.map((stock) => ({ symbol: stock.symbol }));
+export async function generateStaticParams() {
+  const stocks = await getStocks();
+  return stocks.map((stock) => ({ symbol: stock.symbol }));
 }
 
 export default async function StockDetailPage({ params }: PageProps<"/stocks/[symbol]">) {
   const { symbol } = await params;
-  const stock = getStockBySymbol(symbol);
+  const [stock, prices] = await Promise.all([getStockBySymbol(symbol), getPriceHistory(symbol)]);
   if (!stock) notFound();
 
   const yields = calcHistoricalYields(stock);
-  const firstYear = stock.history[0].year;
-  const lastYear = stock.history[stock.history.length - 1].year;
+  const years = stock.history.length;
+  const firstYear = stock.history[0]?.year;
+  const lastYear = stock.history[years - 1]?.year;
 
   return (
     <div className="space-y-4">
@@ -59,7 +63,7 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
         </div>
         <div className="text-right">
           <div className="text-3xl font-semibold">{formatNumber(stock.price)}</div>
-          <p className="text-xs text-slate-500">บาท · ข้อมูลจำลอง ณ {MOCK_DATA_AS_OF}</p>
+          <p className="text-xs text-slate-500">บาท · Yahoo Finance อัปเดต {latestUpdate([stock])}</p>
         </div>
       </header>
 
@@ -72,81 +76,93 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
           hint="ปันผลปีล่าสุด ÷ ราคาปัจจุบัน"
           icon={Coins}
         />
-        <StatCard label="ROE" value={formatPercent(stock.roe, 1)} hint={`ปี ${lastYear}`} icon={TrendingUp} />
+        <StatCard label="ROE" value={formatPercent(stock.roe, 1)} hint={lastYear ? `ปี ${lastYear}` : "ปีล่าสุด"} icon={TrendingUp} />
         <StatCard label="D/E Ratio" value={formatNumber(stock.de)} hint="เท่า" icon={Wallet} />
         <StatCard label="Market Cap" value={formatMarketCap(stock.marketCap)} hint="บาท" icon={Landmark} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section
-          title="ประวัติเงินปันผลต่อหุ้น"
-          subtitle={`บาท/หุ้น · ปี ${firstYear}–${lastYear}`}
-          icon={PiggyBank}
-        >
-          <DividendChart history={stock.history} />
-        </Section>
-
-        <Section
-          title="Yield ย้อนหลังเทียบราคาปัจจุบัน"
-          subtitle={`ถ้าซื้อที่ราคา ${formatNumber(stock.price)} บาทวันนี้ แล้วได้ปันผลเท่าแต่ละปีในอดีต จะได้ Yield เท่าไร`}
-          icon={Coins}
-        >
-          <DataTable<HistoricalYield>
-            rows={yields}
-            rowKey={(row) => row.year}
-            columns={[
-              { label: "ปี", align: "left", render: (row) => row.year },
-              { label: "ปันผล/หุ้น", render: (row) => formatNumber(row.dividendPerShare) },
-              { label: "ราคาปิดปีนั้น", render: (row) => formatNumber(row.closePrice) },
-              { label: "Yield ณ ปีนั้น", render: (row) => formatPercent(row.yieldAtClose) },
-              {
-                label: "Yield เทียบราคาปัจจุบัน",
-                render: (row) => <span className="font-semibold">{formatPercent(row.yieldOnCurrentPrice)}</span>,
-              },
-            ]}
-            footer={
-              <tr>
-                <td className="px-2 py-2">เฉลี่ย 5 ปี</td>
-                <td className="px-2 py-2 text-right font-mono tabular-nums">
-                  {formatNumber(average(yields.map((y) => y.dividendPerShare)))}
-                </td>
-                <td />
-                <td className="px-2 py-2 text-right font-mono tabular-nums">
-                  {formatPercent(average(yields.map((y) => y.yieldAtClose)))}
-                </td>
-                <td className="px-2 py-2 text-right font-mono tabular-nums">
-                  {formatPercent(average(yields.map((y) => y.yieldOnCurrentPrice)))}
-                </td>
-              </tr>
-            }
-          />
-        </Section>
-      </div>
-
-      <Section
-        title="รายได้ รายจ่าย และกำไรสุทธิ 5 ปี"
-        subtitle="แกนตั้งหน่วยพันล้านบาท · รายจ่ายรวมต้นทุนและภาษี (รายได้ − กำไรสุทธิ)"
-        icon={BarChart3}
-      >
-        <FinancialsChart history={stock.history} />
+      <Section title="ราคาหุ้นย้อนหลัง" subtitle="ราคาปิดรายวัน (บาท)" icon={LineChart}>
+        <PriceChart prices={prices} />
       </Section>
 
-      <Section title="งบการเงินและอัตราส่วนย้อนหลัง" subtitle="หน่วยเงิน: ล้านบาท" icon={Table2}>
-        <DataTable<YearlyFinancials>
-          rows={stock.history}
-          rowKey={(row) => row.year}
-          columns={[
-            { label: "ปี", align: "left", render: (row) => row.year },
-            { label: "รายได้", render: (row) => formatNumber(row.revenue, 0) },
-            { label: "รายจ่าย", render: (row) => formatNumber(row.expenses, 0) },
-            { label: "กำไรสุทธิ", render: (row) => formatNumber(row.netProfit, 0) },
-            { label: "EPS (บาท)", render: (row) => formatNumber(row.eps) },
-            { label: "Net Profit Margin", render: (row) => formatPercent(row.netProfitMargin) },
-            { label: "ROE", render: (row) => formatPercent(row.roe, 1) },
-            { label: "D/E", render: (row) => formatNumber(row.de) },
-          ]}
-        />
-      </Section>
+      {years === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-300 py-12 text-center text-sm text-slate-500 dark:border-slate-700">
+          ยังไม่มีข้อมูลงบการเงินรายปีของหุ้นนี้
+        </p>
+      ) : (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Section
+              title="ประวัติเงินปันผลต่อหุ้น"
+              subtitle={`บาท/หุ้น · ปี ${firstYear}–${lastYear}`}
+              icon={PiggyBank}
+            >
+              <DividendChart history={stock.history} />
+            </Section>
+
+            <Section
+              title="Yield ย้อนหลังเทียบราคาปัจจุบัน"
+              subtitle={`ถ้าซื้อที่ราคา ${formatNumber(stock.price)} บาทวันนี้ แล้วได้ปันผลเท่าแต่ละปีในอดีต จะได้ Yield เท่าไร`}
+              icon={Coins}
+            >
+              <DataTable<HistoricalYield>
+                rows={yields}
+                rowKey={(row) => row.year}
+                columns={[
+                  { label: "ปี", align: "left", render: (row) => row.year },
+                  { label: "ปันผล/หุ้น", render: (row) => formatNumber(row.dividendPerShare) },
+                  { label: "ราคาปิดปีนั้น", render: (row) => formatNumber(row.closePrice) },
+                  { label: "Yield ณ ปีนั้น", render: (row) => formatPercent(row.yieldAtClose) },
+                  {
+                    label: "Yield เทียบราคาปัจจุบัน",
+                    render: (row) => <span className="font-semibold">{formatPercent(row.yieldOnCurrentPrice)}</span>,
+                  },
+                ]}
+                footer={
+                  <tr>
+                    <td className="px-2 py-2">เฉลี่ย {years} ปี</td>
+                    <td className="px-2 py-2 text-right font-mono tabular-nums">
+                      {formatNumber(average(yields.map((y) => y.dividendPerShare)))}
+                    </td>
+                    <td />
+                    <td className="px-2 py-2 text-right font-mono tabular-nums">
+                      {formatPercent(average(yields.map((y) => y.yieldAtClose)))}
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono tabular-nums">
+                      {formatPercent(average(yields.map((y) => y.yieldOnCurrentPrice)))}
+                    </td>
+                  </tr>
+                }
+              />
+            </Section>
+          </div>
+
+          <Section
+            title={`รายได้ รายจ่าย และกำไรสุทธิ ${years} ปี`}
+            subtitle="แกนตั้งหน่วยพันล้านบาท · รายจ่ายรวมต้นทุนและภาษี (รายได้ − กำไรสุทธิ)"
+            icon={BarChart3}
+          >
+            <FinancialsChart history={stock.history} />
+          </Section>
+
+          <Section title="งบการเงินและอัตราส่วนย้อนหลัง" subtitle="หน่วยเงิน: ล้านบาท" icon={Table2}>
+            <DataTable<YearlyFinancials>
+              rows={stock.history}
+              rowKey={(row) => row.year}
+              columns={[
+                { label: "ปี", align: "left", render: (row) => row.year },
+                { label: "รายได้", render: (row) => formatNumber(row.revenue, 0) },
+                { label: "รายจ่าย", render: (row) => formatNumber(row.expenses, 0) },
+                { label: "กำไรสุทธิ", render: (row) => formatNumber(row.netProfit, 0) },
+                { label: "EPS (บาท)", render: (row) => formatNumber(row.eps) },
+                { label: "Net Profit Margin", render: (row) => formatPercent(row.netProfitMargin) },
+                { label: "ROE", render: (row) => formatPercent(row.roe, 1) },
+                { label: "D/E", render: (row) => formatNumber(row.de) },
+              ]}
+            />
+          </Section>
+        </>
+      )}
 
       <PrivateNote symbol={stock.symbol} />
     </div>

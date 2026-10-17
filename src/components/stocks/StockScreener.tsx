@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Search, SearchX } from "lucide-react";
-import { mockStocks } from "@/data/mockStocks";
 import {
   BASIC_VI_PRESET,
   defaultThresholds,
@@ -12,13 +11,12 @@ import {
   type ThresholdField,
   type Thresholds,
 } from "@/lib/screening";
-import type { Sector } from "@/types/stock";
+import type { Sector, Stock } from "@/types/stock";
 import { ScreeningFilters } from "./ScreeningFilters";
 import { StockTable, sortStocks, type SortState } from "./StockTable";
 
-const sectors = [...new Set(mockStocks.map((stock) => stock.sector))].sort();
-
-export function StockScreener() {
+export function StockScreener({ stocks }: { stocks: Stock[] }) {
+  const sectors = [...new Set(stocks.map((stock) => stock.sector))].sort();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
@@ -56,7 +54,7 @@ export function StockScreener() {
 
   const normalizedQuery = query.trim().toLowerCase();
   const results = sortStocks(
-    screenStocks(mockStocks, enabled, thresholds).filter(
+    screenStocks(stocks, enabled, thresholds).filter(
       (stock) =>
         (sector === "all" || stock.sector === sector) &&
         (!normalizedQuery ||
@@ -111,7 +109,7 @@ export function StockScreener() {
       />
 
       <p className="text-sm text-slate-500">
-        พบ {results.length} จาก {mockStocks.length} หลักทรัพย์
+        พบ {results.length} จาก {stocks.length} หลักทรัพย์
       </p>
 
       {results.length > 0 ? (

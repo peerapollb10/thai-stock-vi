@@ -20,6 +20,10 @@
 # production
 /build
 
+# python (scripts/fetch_stocks.py)
+/.venv/
+__pycache__/
+
 # misc
 .DS_Store
 *.pem

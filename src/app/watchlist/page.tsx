@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { WatchlistView } from "@/components/user-data/WatchlistView";
+import { getStocks } from "@/lib/market-data";
 
 export const metadata: Metadata = { title: "Watchlist · Thai Stock VI Dashboard" };
 
-export default function WatchlistPage() {
+export default async function WatchlistPage() {
+  const stocks = await getStocks();
+
   return (
     <div className="space-y-4">
       <div>
@@ -12,7 +15,7 @@ export default function WatchlistPage() {
           หุ้นที่คุณติดตาม · บันทึกใน Supabase ผูกกับเบราว์เซอร์นี้ (ไม่ต้องสมัครสมาชิก)
         </p>
       </div>
-      <WatchlistView />
+      <WatchlistView stocks={stocks} />
     </div>
   );
 }

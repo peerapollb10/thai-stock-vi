@@ -10,7 +10,8 @@
     "copy-summary": "node scripts/copy-summary.js",
     "notify": "node scripts/notify.js",
     "send-line": "node scripts/send-line.js",
-    "check-supabase": "node scripts/check-supabase.js"
+    "check-supabase": "node scripts/check-supabase.js",
+    "fetch-stocks": ".venv\\Scripts\\python scripts/fetch_stocks.py"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CloudOff, Star } from "lucide-react";
 import { StockTable, sortStocks, type SortState } from "@/components/stocks/StockTable";
-import { mockStocks } from "@/data/mockStocks";
+import type { Stock } from "@/types/stock";
 import { useUserData } from "./UserDataProvider";
 
 function Notice({ icon: Icon, children }: { icon: typeof Star; children: React.ReactNode }) {
@@ -16,7 +16,7 @@ function Notice({ icon: Icon, children }: { icon: typeof Star; children: React.R
   );
 }
 
-export function WatchlistView() {
+export function WatchlistView({ stocks: allStocks }: { stocks: Stock[] }) {
   const { status, error, watchlist } = useUserData();
   const [sort, setSort] = useState<SortState>({ key: "marketCap", dir: "desc" });
 
@@ -31,7 +31,7 @@ export function WatchlistView() {
     );
   }
 
-  const stocks = mockStocks.filter((stock) => watchlist.includes(stock.symbol));
+  const stocks = allStocks.filter((stock) => watchlist.includes(stock.symbol));
 
   return (
     <div className="space-y-3">

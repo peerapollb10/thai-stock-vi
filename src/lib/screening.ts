@@ -32,14 +32,14 @@ export const criteria: Criterion[] = [
   {
     kind: "check",
     id: "steadyDividend",
-    label: "จ่ายปันผลทุกปี (5 ปี)",
-    test: (stock) => stock.history.every((year) => year.dividendPerShare > 0),
+    label: "จ่ายปันผลทุกปี",
+    test: (stock) => stock.history.length > 0 && stock.history.every((year) => year.dividendPerShare > 0),
   },
   {
     kind: "check",
     id: "steadyProfit",
-    label: "มีกำไรทุกปี (5 ปี)",
-    test: (stock) => stock.history.every((year) => year.netProfit > 0),
+    label: "มีกำไรทุกปี",
+    test: (stock) => stock.history.length > 0 && stock.history.every((year) => year.netProfit > 0),
   },
 ];
 

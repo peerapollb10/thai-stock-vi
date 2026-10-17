@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 import { StockScreener } from "@/components/stocks/StockScreener";
+import { getStocks } from "@/lib/market-data";
 
-export default function StocksPage() {
+export default async function StocksPage() {
+  const stocks = await getStocks();
+
   return (
     <div className="space-y-4">
       <div>
@@ -10,7 +13,7 @@ export default function StocksPage() {
       </div>
       {/* StockScreener อ่าน ?q= จาก URL จึงต้องอยู่ใน Suspense */}
       <Suspense>
-        <StockScreener />
+        <StockScreener stocks={stocks} />
       </Suspense>
     </div>
   );

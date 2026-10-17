@@ -7,7 +7,8 @@ export type Sector =
   | "Banking"
   | "Transportation & Logistics"
   | "Property Development"
-  | "Electronic Components";
+  | "Electronic Components"
+  | "Other";
 
 /** ข้อมูลรายปี (หน่วยเงิน: ล้านบาท) */
 export interface YearlyFinancials {
@@ -52,6 +53,15 @@ export interface Stock {
   de: number;
   /** มูลค่าตลาด (ล้านบาท) */
   marketCap: number;
-  /** ข้อมูลย้อนหลัง 5 ปี เรียงจากปีเก่าไปใหม่ */
+  /** เวลาที่อัปเดตข้อมูลล่าสุด (ISO 8601) */
+  updatedAt: string;
+  /** งบรายปีย้อนหลัง (ตามที่ Yahoo Finance มี ปกติ 4–5 ปี) เรียงจากปีเก่าไปใหม่ */
   history: YearlyFinancials[];
+}
+
+/** ราคาปิดรายวัน */
+export interface PricePoint {
+  /** YYYY-MM-DD */
+  date: string;
+  close: number;
 }

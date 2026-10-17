@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { TrendingUp, X } from "lucide-react";
@@ -9,9 +10,11 @@ import { navItems } from "./nav-items";
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  /** สถานะแหล่งข้อมูล (Server Component ส่งผ่าน AppShell) */
+  footer: ReactNode;
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, footer }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -73,7 +76,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <p className="px-5 py-4 text-xs text-slate-400">ข้อมูลจำลอง — ไม่ใช่คำแนะนำการลงทุน</p>
+        <div className="px-5 py-4 text-xs text-slate-400">{footer}</div>
       </aside>
     </>
   );

@@ -5,8 +5,10 @@
       "Bash(npm run *)",
       "Bash(npm install *)",
       "Bash(git *)",
+      "Bash(python *)",
       "PowerShell(npm run *)",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "PowerShell(python *)"
     ]
   }
 }

@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
+import { DataSourceNote, DataSourceNoteFallback } from "@/components/layout/DataSourceNote";
 import "./globals.css";
 
 const plexThai = IBM_Plex_Sans_Thai({
@@ -23,7 +25,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="th" className={`${plexThai.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <AppShell>{children}</AppShell>
+        <AppShell
+          sidebarFooter={
+            <Suspense fallback={<DataSourceNoteFallback />}>
+              <DataSourceNote />
+            </Suspense>
+          }
+        >
+          {children}
+        </AppShell>
       </body>
     </html>
   );

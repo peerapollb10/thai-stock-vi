@@ -24,3 +24,16 @@
 
 ## Phase 4: Supabase Integration (Future Step)
 - [x] เชื่อมต่อ Supabase สำหรับเก็บข้อมูล Watchlist และบันทึกโน้ตส่วนตัวของผู้ใช้
+
+## Phase 5: Real Market Data (Python + yfinance → Supabase)
+- [x] สร้างสคริปต์ `scripts/fetch_stocks.py` ดึงราคาย้อนหลัง, งบการเงินรายปี และข้อมูลพื้นฐานหุ้นไทย (.BK) ผ่าน yfinance
+- [x] แปลงข้อมูลให้ตรงโครงสร้าง `Stock` / `YearlyFinancials` (ล้านบาท, ROE, NPM, D/E, ปันผลตามปีผลประกอบการ)
+- [x] สร้าง SQL `supabase/market_data.sql`: ตาราง `stocks`, `stock_prices`, `stock_financials` + RLS (อ่านได้ทุกคน, เขียนด้วย Secret key)
+- [x] เพิ่ม `requirements.txt` (yfinance, pandas, supabase, python-dotenv) และ `npm run fetch-stocks`
+- [x] รัน `supabase/market_data.sql` ใน SQL Editor และใส่ `SUPABASE_SECRET_KEY` ใน `.env.local` แล้วรัน `npm run fetch-stocks`
+- [x] เปลี่ยนหน้าเว็บจาก `mockStocks.ts` ไปอ่านข้อมูลจริงจาก Supabase (`src/lib/market-data.ts`, cache 1 ชม.)
+- [x] เพิ่มกราฟราคาหุ้นย้อนหลัง (1 ปี / 3 ปี / ทั้งหมด) ในหน้าหุ้นรายตัว จากตาราง `stock_prices`
+- [x] Loading state (`src/app/loading.tsx`) และ Error state (`src/app/error.tsx`) พร้อมปุ่มลองอีกครั้ง
+- [x] ลบป้าย "ข้อมูลจำลอง" ที่ Sidebar → แสดงจำนวนหุ้นจริงในตาราง stocks + วันที่อัปเดต (`DataSourceNote`)
+- [x] อ่านทุกตาราง (stocks / stock_financials / stock_prices) แบบแบ่งหน้า ไม่ถูกตัดที่ 1,000 แถวเมื่อเพิ่มหุ้น
+- [x] ตรวจซ้ำ: ไม่มีคำว่า "จำลอง" ใน src/ และใน build ใหม่ — ลบ cache .next เก่า (dev cache ยังมีข้อความเดิม) แล้ว build ใหม่

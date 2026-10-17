@@ -2,32 +2,27 @@ import Link from "next/link";
 import { ArrowRight, BadgeCheck, Building2, Coins, Gauge, Landmark, PiggyBank, TrendingUp } from "lucide-react";
 import { RankingCard } from "@/components/dashboard/RankingCard";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { MOCK_DATA_AS_OF, mockStocks } from "@/data/mockStocks";
+import { median } from "@/lib/analytics";
 import { formatMarketCap, formatNumber, formatPercent } from "@/lib/format";
 import { BASIC_VI_PRESET, criteria, describeCriterion, screenStocks } from "@/lib/screening";
+import { getStocks, latestUpdate } from "@/lib/market-data";
 import type { Stock } from "@/types/stock";
 
-function median(values: number[]) {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function topBy(key: "pe" | "dividendYield" | "roe", dir: "asc" | "desc", count = 5) {
+function topBy(stocks: Stock[], key: "pe" | "dividendYield" | "roe", dir: "asc" | "desc", count = 5) {
   const sign = dir === "asc" ? 1 : -1;
-  return [...mockStocks]
+  return [...stocks]
     .filter((stock) => stock[key] > 0)
     .sort((a, b) => sign * (a[key] - b[key]))
     .slice(0, count);
 }
 
 function sectorBreakdown(stocks: Stock[]) {
-  const totalCap = stocks.reduce((sum, s) => sum + s.marketCap, 0);
+  const totalCap = stocks.reduce((sum, s) => sum + (s.marketCap || 0), 0);
   const groups = new Map<string, { count: number; marketCap: number }>();
   for (const stock of stocks) {
     const group = groups.get(stock.sector) ?? { count: 0, marketCap: 0 };
     group.count += 1;
-    group.marketCap += stock.marketCap;
+    group.marketCap += stock.marketCap || 0;
     groups.set(stock.sector, group);
   }
   return [...groups]
@@ -35,9 +30,11 @@ function sectorBreakdown(stocks: Stock[]) {
     .sort((a, b) => b.marketCap - a.marketCap);
 }
 
-export default function DashboardPage() {
-  const totalMarketCap = mockStocks.reduce((sum, s) => sum + s.marketCap, 0);
-  const viPicks = screenStocks(mockStocks, BASIC_VI_PRESET);
+export default async function DashboardPage() {
+  const stocks = await getStocks();
+  // NaN || 0: หุ้นที่ไม่มีข้อมูลมูลค่าตลาดไม่นับรวม
+  const totalMarketCap = stocks.reduce((sum, s) => sum + (s.marketCap || 0), 0);
+  const viPicks = screenStocks(stocks, BASIC_VI_PRESET);
   const viRule = criteria
     .filter((c) => BASIC_VI_PRESET.includes(c.id))
     .map((c) => describeCriterion(c))
@@ -48,7 +45,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold">ภาพรวมตลาด</h1>
         <p className="text-sm text-slate-500">
-          ข้อมูลจำลอง {mockStocks.length} หลักทรัพย์ · ณ {MOCK_DATA_AS_OF}
+          ข้อมูลจริงจาก Yahoo Finance {stocks.length} หลักทรัพย์ · อัปเดต {latestUpdate(stocks)}
         </p>
       </div>
 
@@ -56,19 +53,19 @@ export default function DashboardPage() {
         <StatCard label="มูลค่าตลาดรวม" value={formatMarketCap(totalMarketCap)} hint="บาท" icon={Landmark} />
         <StatCard
           label="P/E (ค่ามัธยฐาน)"
-          value={formatNumber(median(mockStocks.map((s) => s.pe)))}
+          value={formatNumber(median(stocks.map((s) => s.pe)))}
           hint="เท่า"
           icon={Gauge}
         />
         <StatCard
           label="Dividend Yield (ค่ามัธยฐาน)"
-          value={formatPercent(median(mockStocks.map((s) => s.dividendYield)))}
+          value={formatPercent(median(stocks.map((s) => s.dividendYield)))}
           hint="ปันผลปีล่าสุด ÷ ราคาปัจจุบัน"
           icon={Coins}
         />
         <StatCard
           label="ROE (ค่ามัธยฐาน)"
-          value={formatPercent(median(mockStocks.map((s) => s.roe)), 1)}
+          value={formatPercent(median(stocks.map((s) => s.roe)), 1)}
           hint="ปีล่าสุด"
           icon={TrendingUp}
         />
@@ -113,19 +110,19 @@ export default function DashboardPage() {
         <RankingCard
           title="ปันผลสูงสุด"
           icon={PiggyBank}
-          stocks={topBy("dividendYield", "desc")}
+          stocks={topBy(stocks, "dividendYield", "desc")}
           formatValue={(s) => formatPercent(s.dividendYield)}
         />
         <RankingCard
           title="P/E ต่ำสุด"
           icon={Gauge}
-          stocks={topBy("pe", "asc")}
+          stocks={topBy(stocks, "pe", "asc")}
           formatValue={(s) => `${formatNumber(s.pe)} เท่า`}
         />
         <RankingCard
           title="ROE สูงสุด"
           icon={TrendingUp}
-          stocks={topBy("roe", "desc")}
+          stocks={topBy(stocks, "roe", "desc")}
           formatValue={(s) => formatPercent(s.roe, 1)}
         />
       </div>
@@ -146,7 +143,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {sectorBreakdown(mockStocks).map((row) => (
+              {sectorBreakdown(stocks).map((row) => (
                 <tr key={row.sector}>
                   <td className="py-1.5">{row.sector}</td>
                   <td className="py-1.5 text-right font-mono tabular-nums">{row.count}</td>
