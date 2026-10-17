@@ -18,6 +18,7 @@ import { DividendChart } from "@/components/stock-detail/DividendChart";
 import { FinancialsChart } from "@/components/stock-detail/FinancialsChart";
 import { PrivateNote } from "@/components/stock-detail/PrivateNote";
 import { Section } from "@/components/stock-detail/Section";
+import { WatchlistButton } from "@/components/user-data/WatchlistButton";
 import { getStockBySymbol, MOCK_DATA_AS_OF, mockStocks } from "@/data/mockStocks";
 import { average, calcHistoricalYields, type HistoricalYield } from "@/lib/analytics";
 import { formatMarketCap, formatNumber, formatPercent } from "@/lib/format";
@@ -48,7 +49,10 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
 
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{stock.symbol}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">{stock.symbol}</h1>
+            <WatchlistButton symbol={stock.symbol} variant="labeled" />
+          </div>
           <p className="text-sm text-slate-500">
             {stock.name} · {stock.sector}
           </p>

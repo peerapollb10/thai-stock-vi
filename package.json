@@ -7,9 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "copy-summary": "node scripts/copy-summary.js"
+    "copy-summary": "node scripts/copy-summary.js",
+    "notify": "node scripts/notify.js",
+    "send-line": "node scripts/send-line.js",
+    "check-supabase": "node scripts/check-supabase.js"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.58.0",
     "next": "16.4.2",

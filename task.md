@@ -23,4 +23,4 @@
 - [x] ส่วนแสดงค่าสำคัญอื่นๆ (P/E, P/BV, Dividend Yield ปัจจุบัน, ROE, D/E Ratio, Market Cap) และช่อง Note ส่วนตัว
 
 ## Phase 4: Supabase Integration (Future Step)
-- [ ] เชื่อมต่อ Supabase สำหรับเก็บข้อมูล Watchlist และบันทึกโน้ตส่วนตัวของผู้ใช้
+- [x] เชื่อมต่อ Supabase สำหรับเก็บข้อมูล Watchlist และบันทึกโน้ตส่วนตัวของผู้ใช้

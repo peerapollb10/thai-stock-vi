@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { formatMarketCap, formatNumber, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { WatchlistButton } from "@/components/user-data/WatchlistButton";
 import type { ThresholdField } from "@/lib/screening";
 import type { Stock } from "@/types/stock";
 
@@ -98,6 +99,9 @@ export function StockTable({ stocks, sort, onSortChange, filteredFields }: Stock
       <table className="w-full text-sm">
         <thead className="border-b border-slate-200 text-slate-500 dark:border-slate-800">
           <tr>
+            <th scope="col" className="w-10 px-1 py-2.5">
+              <span className="sr-only">Watchlist</span>
+            </th>
             <SortHeader
               sortKey="symbol"
               label="หุ้น"
@@ -124,6 +128,9 @@ export function StockTable({ stocks, sort, onSortChange, filteredFields }: Stock
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {stocks.map((stock) => (
             <tr key={stock.symbol} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+              <td className="px-1 py-2.5 text-center">
+                <WatchlistButton symbol={stock.symbol} />
+              </td>
               <td className="px-3 py-2.5">
                 <Link href={`/stocks/${stock.symbol}`} className="group block">
                   <div className="font-semibold group-hover:text-emerald-600">{stock.symbol}</div>
