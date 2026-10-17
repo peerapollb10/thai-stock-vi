@@ -14,7 +14,7 @@ export function StatCard({ label, value, hint, icon: Icon }: StatCardProps) {
         {label}
         <Icon className="size-4" />
       </div>
-      <div className="mt-2 font-mono text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
       {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );

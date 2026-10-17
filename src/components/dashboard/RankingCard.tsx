@@ -20,7 +20,7 @@ export function RankingCard({ title, icon: Icon, stocks, formatValue }: RankingC
         {stocks.map((stock, index) => (
           <li key={stock.symbol}>
             <Link
-              href={`/stocks?q=${stock.symbol}`}
+              href={`/stocks/${stock.symbol}`}
               className="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <span className="w-4 text-xs text-slate-400">{index + 1}</span>

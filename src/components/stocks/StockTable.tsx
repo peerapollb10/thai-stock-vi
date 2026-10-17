@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { formatMarketCap, formatNumber, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -124,10 +125,12 @@ export function StockTable({ stocks, sort, onSortChange, filteredFields }: Stock
           {stocks.map((stock) => (
             <tr key={stock.symbol} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
               <td className="px-3 py-2.5">
-                <div className="font-semibold">{stock.symbol}</div>
-                <div className="max-w-56 truncate text-xs text-slate-500">
-                  {stock.name} · {stock.sector}
-                </div>
+                <Link href={`/stocks/${stock.symbol}`} className="group block">
+                  <div className="font-semibold group-hover:text-emerald-600">{stock.symbol}</div>
+                  <div className="max-w-56 truncate text-xs text-slate-500">
+                    {stock.name} · {stock.sector}
+                  </div>
+                </Link>
               </td>
               {columns.map((col) => (
                 <td

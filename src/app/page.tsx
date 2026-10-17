@@ -96,7 +96,7 @@ export default function DashboardPage() {
             {viPicks.map((stock) => (
               <Link
                 key={stock.symbol}
-                href={`/stocks?q=${stock.symbol}`}
+                href={`/stocks/${stock.symbol}`}
                 className="rounded-lg bg-white px-3 py-1.5 text-sm shadow-sm hover:shadow dark:bg-slate-900"
               >
                 <span className="font-semibold">{stock.symbol}</span>

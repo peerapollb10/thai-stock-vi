@@ -3,6 +3,16 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  /* สีกราฟ (ผ่านการตรวจ CVD/contrast บนพื้นการ์ด #ffffff) */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-grid: #e2e8f0;
+  --chart-axis: #cbd5e1;
+  --chart-muted: #64748b;
+  --chart-label: #334155;
+  --chart-cursor: rgb(15 23 42 / 0.04);
 }
 
 @theme inline {
@@ -16,6 +26,16 @@
   :root {
     --background: #020617;
     --foreground: #e2e8f0;
+
+    /* ชุดสีเดียวกัน ปรับระดับสำหรับพื้นการ์ดมืด #0f172a */
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-grid: #1e293b;
+    --chart-axis: #334155;
+    --chart-muted: #94a3b8;
+    --chart-label: #cbd5e1;
+    --chart-cursor: rgb(255 255 255 / 0.04);
   }
 }
 
