@@ -47,4 +47,28 @@
 - [x] `fetch_stocks.py` อ่านไฟล์จากเว็บ SET ได้โดยตรง (ตาราง HTML, cp874, หัวคอลัมน์ไทย) — 930 ตัว (SET 700 / mai 230)
 - [x] ล็อตแรก `--market SET --limit 20 --skip-fresh 20 --delay 1.5`: สำเร็จ 20/20 → Supabase มี 30 หุ้น
 - [x] ใช้ "หมวดธุรกิจ" ของ SET เป็นชื่อกลุ่มทุกหุ้น (รวม 10 ตัวหลัก) — ไม่มีชื่อไทย/อังกฤษปนกัน
-- [ ] ดึงส่วนที่เหลือของ SET (~670 ตัว) เป็นชุดๆ ด้วย `--limit` + `--skip-fresh` เมื่อผู้ใช้สั่ง
+- [x] ดึงส่วนที่เหลือของ SET (~670 ตัว) เป็นชุดๆ ด้วย `--limit` + `--skip-fresh` เมื่อผู้ใช้สั่ง — ครบแล้ว Supabase มี 698 หุ้น
+- [x] `scripts/check_fetch.py`: ตรวจข้อมูลใน Supabase แบบอ่านอย่างเดียว (`--hours 24`) — 698 ตัวอัปเดตครบใน 24 ชม., ปกติ 658 / ต้องสังเกต 40 (ส่วนใหญ่กองทุน/REIT ที่ Yahoo ไม่มีงบการเงิน)
+- [x] ประเภท `Sector` เป็น union ชื่อหมวดธุรกิจภาษาไทยของ SET (`src/types/stock.ts`) และปรับตัวเลือกกลุ่มใน `StockScreener.tsx`
+
+## Phase 7: LINE Bot Task Queue & Script Management
+- [x] `scripts/line_bot.js` + `npm run bot`: LINE webhook bot สั่ง Claude Code ได้ 2 ทาง (รับคำสั่ง → รัน → ส่งผลกลับ)
+      - ตรวจลายเซ็น LINE (`x-line-signature`) และรับคำสั่งจากเจ้าของ (owner) เท่านั้น
+      - รัน `claude -p --permission-mode acceptEdits` ตามสิทธิ์ใน `.claude/settings.json`
+      - Task Queue: รันทีละงาน คำสั่งที่เข้ามาระหว่างรันต่อคิว (`taskQueue`) แล้วเริ่มอัตโนมัติเมื่องานก่อนหน้าเสร็จ
+      - คำสั่ง `/status` (งานที่รัน + คิว), `/cancel` (หยุดงานปัจจุบันแล้วรันงานถัดไป), `/clear` (ล้างคิว), `/help`
+      - หยุดงานอัตโนมัติเมื่อเกิน `BOT_TIMEOUT_MIN` นาที (ค่าเริ่มต้น 15) และใช้ `taskkill /T /F` ฆ่าทั้งต้นไม้ process บน Windows
+      - ส่งผลเป็น 2 ข้อความ: รายละเอียดทางเทคนิค + สรุปสั้น (แยกด้วยตัวคั่น `===SUMMARY===`)
+      - Health check ผ่าน HTTP: ตอบ `ok` หรือ `busy (queue: N)`
+- [x] `.env.example` เพิ่มค่าตั้งของ bot; `.gitignore` ไม่ commit `data/*.log`
+- [x] `.claude/settings.json`: แก้กฎ allow `curl … http://localhost:*` ที่ไม่เคย match
+- [x] ระบบสคริปต์ npm ครบชุด: `finish` (รวม `copy-summary` + `send-line` + `notify`), `bot`, `fetch-stocks`
+- [x] `scripts/notify.js`: เลิกใช้ `-ExecutionPolicy Bypass` (ทำให้ PowerShell ค้าง) + ใส่ timeout และตรวจค่าตั้งก่อนส่ง
+- [x] เลิกใช้ `summary.txt` — `task.md` เป็นบันทึกสถานะงานหลักไฟล์เดียว
+      - ลบ `summary.txt` และ `scripts/copy-summary.js` (+ `npm run copy-summary`) ที่มีไว้คัดลอกไฟล์นั้นเท่านั้น
+      - `finish.js` / `send-line.js` / `notify.js` รับข้อความสั้นจาก argument แทนการอ่าน `summary.txt` (`npm run finish -- "ข้อความ"`)
+      - CLAUDE.md: Finish Protocol = อัปเดต `task.md` → `npm run finish`
+- [x] LINE bot ส่งผลลัพธ์ 2 บับเบิลเท่านั้น: "📋 สำหรับ Gemini" (เนื้อหาทางเทคนิค) + "📝 สำหรับคุณเบียร์" (สรุป Bullet)
+      - `line_bot.js`: ตัดบรรทัดสถานะ/เวลา/คิวออก, ตอบรับคำสั่งสั้นๆ 1 ข้อความ, ตั้ง `LINE_BOT_JOB=1` ให้ process ลูก
+      - `send-line.js` / `finish.js`: ข้ามการส่ง LINE เมื่อ `LINE_BOT_JOB=1` เพื่อไม่ให้มีข้อความที่ 3 ซ้ำ
+- [x] `scripts/count-rows.js`: นับจำนวนแถวในตาราง Supabase แบบอ่านอย่างเดียว (`node scripts/count-rows.js [ตาราง…]`)

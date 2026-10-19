@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "copy-summary": "node scripts/copy-summary.js",
     "notify": "node scripts/notify.js",
     "send-line": "node scripts/send-line.js",
     "finish": "node scripts/finish.js",

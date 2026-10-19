@@ -8,7 +8,9 @@
 //     (ไม่ใช้ --dangerously-skip-permissions ตามกฎ Autonomous Mode ใน CLAUDE.md) — คำสั่งนอก allowlist จะถูกปฏิเสธเอง
 //   - ข้อความส่งเข้า claude ทาง stdin ไม่ผ่าน command line จึงไม่เกิด shell injection
 //   - รันทีละงาน (คำสั่งที่เข้ามาระหว่างรันจะต่อคิวไว้ใน taskQueue) และหยุดงานที่เกิน BOT_TIMEOUT_MIN นาที
-// ผลลัพธ์ส่งเป็น 2 ข้อความ: (1) รายละเอียดสำหรับก๊อปปี้ไปให้ Gemini (2) สรุปสั้นแบบ Bullet อยู่ล่างสุดไว้อ่านเอง
+// รับคำสั่งใหม่: ตอบรับสั้นๆ 1 ข้อความทันที ("⏳ กำลังรันงาน…" หรือ "📥 รับคำสั่งเข้าคิวแล้ว — ลำดับที่ N")
+// งานเสร็จ: ส่งผลลัพธ์ 2 ข้อความเท่านั้น (1) "📋 สำหรับ Gemini" เนื้อหาทางเทคนิค (2) "📝 สำหรับคุณเบียร์" สรุป Bullet อยู่ล่างสุด
+//   (ไม่มีบรรทัดสถานะ/เวลา/คิวดิบ — แสดงสาเหตุเฉพาะเมื่องานล้มเหลว; send-line.js ข้ามการส่งเมื่อรันจาก bot)
 const http = require("node:http");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -87,25 +89,20 @@ function splitOutput(stdout) {
   return { details: stdout.slice(0, idx).trim(), bullets: stdout.slice(idx + SUMMARY_MARKER.length).trim() };
 }
 
-// ข้อความที่ 1: รายละเอียดทางเทคนิคสำหรับก๊อปปี้ไปให้ Gemini
-function formatDetails({ prompt, ok, status, took, details, stderr }) {
-  const parts = [
-    "📋 รายละเอียดสำหรับส่งต่อ Gemini",
-    `[คำสั่ง]\n${prompt}`,
-    `[สถานะ] ${status} · ใช้เวลา ${took}`,
-    `[ผลลัพธ์]\n${details || "(ไม่มีข้อความตอบกลับ)"}`,
-  ];
-  if (!ok && stderr.trim()) parts.push(`[ข้อผิดพลาด]\n${stderr.trim()}`);
+// ข้อความที่ 1: หัวข้อ + เนื้อหาทางเทคนิคล้วนๆ สำหรับก๊อปปี้ไปให้ Gemini (ไม่มีบรรทัดสถานะ/คิว)
+// ถ้างานล้มเหลวจึงแนบสาเหตุและ stderr ต่อท้าย เพื่อให้ Gemini วิเคราะห์ปัญหาได้
+function formatDetails({ ok, status, details, stderr }) {
+  const parts = ["📋 สำหรับ Gemini", details || "(ไม่มีข้อความตอบกลับ)"];
+  if (!ok) parts.push(`[ข้อผิดพลาด] ${status}${stderr.trim() ? `\n${stderr.trim()}` : ""}`);
   return parts.join("\n\n");
 }
 
-// ข้อความที่ 2 (ล่างสุด): สรุปสั้นแบบ Bullet ไว้อ่านเอง
-function formatSummary({ prompt, ok, status, took, bullets }) {
-  const lines = [`📝 สรุป — ${ok ? "✓" : "✗"} ${status} (${took})`, `• งาน: ${shorten(prompt)}`];
+// ข้อความที่ 2 (ล่างสุด): หัวข้อ + สรุปสั้นแบบ Bullet ไว้อ่านเอง
+function formatSummary({ ok, status, bullets }) {
+  const lines = ["📝 สำหรับคุณเบียร์"];
+  if (!ok) lines.push(`• ✗ ${status}`);
   if (bullets) lines.push(bullets);
-  else lines.push(ok ? "• (Claude ไม่ได้ส่งสรุปมา — ดูรายละเอียดในข้อความก่อนหน้า)" : "• ดูข้อผิดพลาดในข้อความก่อนหน้า");
-  const next = taskQueue[0];
-  lines.push(next ? `⏭ เริ่มงานถัดไป: ${shorten(next.prompt, 40)} (รอต่อจากนี้อีก ${taskQueue.length - 1} งาน)` : "⏹ คิวว่าง");
+  else if (ok) lines.push("• (Claude ไม่ได้ส่งสรุปมา — ดูรายละเอียดในข้อความก่อนหน้า)");
   return lines.join("\n");
 }
 
@@ -121,10 +118,13 @@ function killTree(child) {
 
 function runClaude(prompt) {
   // claude บน Windows เป็น claude.cmd จึงต้องใช้ shell — คำสั่งเป็นข้อความคงที่ ข้อความผู้ใช้ส่งทาง stdin เท่านั้น
+  // LINE_BOT_JOB=1: ให้ send-line.js (ที่ถูกเรียกผ่าน npm run finish ตาม Finish Protocol) ข้ามการส่งข้อความซ้ำ
+  // ไม่งั้น LINE จะได้ข้อความ "Status: … / Completed Tasks: …" ดิบเพิ่มเป็นข้อความที่ 3 ก่อนผลลัพธ์ 2 ข้อความของ bot
   const child = spawn("claude -p --permission-mode acceptEdits --output-format text", {
     cwd: root,
     shell: true,
     windowsHide: true,
+    env: { ...process.env, LINE_BOT_JOB: "1" },
   });
   const startedAt = new Date();
   const thisJob = { child, prompt, startedAt, cancelled: false };
@@ -207,20 +207,16 @@ async function handleEvent(event) {
     const count = taskQueue.splice(0).length;
     return reply(event.replyToken, count > 0 ? `ล้างคิวแล้ว ${count} งาน (งานที่กำลังรันยังทำต่อ)` : "คิวว่างอยู่แล้ว");
   }
+  // ตอบรับสั้นๆ 1 ข้อความทาง reply (ฟรี) — ผลลัพธ์จริงส่งภายหลังเป็น 2 ข้อความทาง push
   if (job) {
     taskQueue.push({ prompt: text, queuedAt: new Date() });
     console.log(`เข้าคิวลำดับที่ ${taskQueue.length}: ${text}`);
-    return reply(
-      event.replyToken,
-      `📥 รับคำสั่งเข้าคิวแล้ว — ลำดับที่ ${taskQueue.length}\n` +
-        `กำลังรัน: ${shorten(job.prompt, 40)} (${elapsed(job.startedAt)})\n` +
-        `จะเริ่มอัตโนมัติเมื่องานก่อนหน้าเสร็จ (/status ดูคิว, /clear ล้างคิว)`,
-    );
+    return reply(event.replyToken, `📥 รับคำสั่งเข้าคิวแล้ว — ลำดับที่ ${taskQueue.length}`);
   }
 
   console.log(`รับคำสั่ง: ${text}`);
   runClaude(text);
-  return reply(event.replyToken, `รับคำสั่งแล้ว กำลังรัน Claude Code… (หยุดอัตโนมัติเมื่อเกิน ${TIMEOUT_MIN} นาที)`);
+  return reply(event.replyToken, "⏳ กำลังรันงาน…");
 }
 
 const server = http.createServer((req, res) => {

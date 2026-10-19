@@ -1,21 +1,10 @@
-// เล่นเสียงเตือนและแสดงป๊อปอัปแจ้งเตือน (Windows Toast) โดยดึงบรรทัด Status จาก summary.txt
+// เล่นเสียงเตือนและแสดงป๊อปอัปแจ้งเตือน (Windows Toast)
 // ใช้งาน: npm run notify  (หรือ node scripts/notify.js "ข้อความเอง")
-// scripts/finish.js เรียก showNotification() ต่อจากการส่ง LINE เพื่อแสดงผลการส่งในป๊อปอัปด้วย
+// scripts/finish.js เรียก notify() ต่อจากการส่ง LINE เพื่อแสดงผลการส่งในป๊อปอัปด้วย
 const { execFileSync } = require("node:child_process");
-const fs = require("node:fs");
-const path = require("node:path");
 
 const TITLE = "Thai Stock VI — งานเสร็จแล้ว";
-const summaryPath = path.join(__dirname, "..", "summary.txt");
-
-function readStatus() {
-  try {
-    const text = fs.readFileSync(summaryPath, "utf8");
-    return text.match(/^﻿?Status:\s*(.+)$/m)?.[1].trim();
-  } catch {
-    return undefined;
-  }
-}
+const DEFAULT_MESSAGE = "ทำงานเสร็จเรียบร้อยแล้ว";
 
 // Toast ของ Windows ผ่าน WinRT API ใน Windows PowerShell
 // ส่งข้อความผ่าน env var และ escape เป็น XML ในสคริปต์ เพื่อไม่ให้อักขระพิเศษในข้อความไปทำให้คำสั่งพัง
@@ -67,7 +56,7 @@ function showNotification(message, detail = "") {
 }
 
 /** เสียง Terminal Bell + ป๊อปอัป — คืนค่า true ถ้าป๊อปอัปแสดงสำเร็จ */
-function notify(message = readStatus() ?? "ทำงานเสร็จเรียบร้อยแล้ว", detail = "") {
+function notify(message = DEFAULT_MESSAGE, detail = "") {
   // Terminal Bell — ดังได้แม้ระบบจะปิดการแจ้งเตือนไว้
   process.stdout.write("\x07");
   try {
@@ -81,7 +70,7 @@ function notify(message = readStatus() ?? "ทำงานเสร็จเร�
   }
 }
 
-module.exports = { notify, readStatus };
+module.exports = { notify, DEFAULT_MESSAGE };
 
 if (require.main === module) {
   if (!notify(process.argv[2])) process.exit(1);
