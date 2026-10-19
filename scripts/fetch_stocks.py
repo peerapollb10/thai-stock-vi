@@ -240,7 +240,40 @@ def build_financials(symbol: str, ticker: yf.Ticker, prices: pd.DataFrame) -> li
             "total_equity": rnd(equity / MILLION if equity is not None else None),
             "total_liabilities": rnd(liabilities / MILLION if liabilities is not None else None),
         })
-    return rows
+    return rows or ttm_financials(symbol, ticker.info, dps, year_close)
+
+
+def ttm_financials(symbol: str, info: dict, dps: dict[int, float], year_close: pd.Series) -> list[dict]:
+    """สำรองเมื่อ Yahoo ไม่มีงบรายปี — สร้าง 1 แถวจากตัวเลข TTM ใน info (ปี = ปีของไตรมาสล่าสุด)
+
+    หุ้นที่มี '&' (F&D, L&E, S&J) Yahoo ไม่มีงบทั้ง endpoint timeseries และ quoteSummary
+    แม้ส่งชื่อเข้ารหัสถูกต้อง แต่ info ยังมีรายได้/กำไร/ROE/มูลค่าทางบัญชีแบบ 12 เดือนล่าสุด
+    """
+    revenue, net_profit = clean(info.get("totalRevenue")), clean(info.get("netIncomeToCommon"))
+    quarter = clean(info.get("mostRecentQuarter"))
+    if revenue is None or net_profit is None or quarter is None:
+        return []
+    year = datetime.fromtimestamp(quarter, timezone.utc).year
+    shares = clean(info.get("sharesOutstanding"))
+    book_value, roe = clean(info.get("bookValue")), clean(info.get("returnOnEquity"))
+    # ส่วนผู้ถือหุ้น = มูลค่าทางบัญชี/หุ้น × จำนวนหุ้น หรือย้อนจาก ROE ถ้าไม่มีจำนวนหุ้น
+    equity = book_value * shares if book_value is not None and shares else ratio(net_profit, roe)
+    return [{
+        "symbol": symbol,
+        "year": year,
+        "close_price": rnd(year_close.get(year)),
+        "dividend_per_share": rnd(dps.get(year, 0.0), 4),
+        "revenue": rnd(revenue / MILLION),
+        "expenses": rnd((revenue - net_profit) / MILLION),
+        "net_profit": rnd(net_profit / MILLION),
+        "eps": rnd(clean(info.get("trailingEps")) or ratio(net_profit, shares), 4),
+        "roe": rnd(roe * 100 if roe is not None else ratio(net_profit, equity, 100)),
+        "net_profit_margin": rnd(ratio(net_profit, revenue, 100)),
+        # debtToEquity ของ Yahoo นับเฉพาะหนี้มีดอกเบี้ย ไม่ใช่หนี้สินรวม/ส่วนผู้ถือหุ้น จึงไม่ใช้แทน D/E
+        "de": None,
+        "total_equity": rnd(equity / MILLION if equity is not None else None),
+        "total_liabilities": None,
+    }]
 
 
 def build_prices(symbol: str, prices: pd.DataFrame) -> list[dict]:
