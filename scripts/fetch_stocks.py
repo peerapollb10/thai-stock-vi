@@ -279,8 +279,6 @@ def main() -> int:
         symbols, file_sectors = load_symbol_file(args.symbols_file, args.market)
     else:
         symbols = args.symbols or list(STOCKS)
-    if args.limit:
-        symbols = symbols[: args.limit]
 
     client = None
     if not args.dry_run:
@@ -297,6 +295,10 @@ def main() -> int:
             skipped = [symbol for symbol in symbols if symbol in fresh]
             symbols = [symbol for symbol in symbols if symbol not in fresh]
             print(f"ข้าม {len(skipped)} ตัวที่อัปเดตภายใน {args.skip_fresh:g} ชั่วโมง")
+
+    # ตัดจำนวนหลังข้ามตัวที่สดแล้ว — รัน --limit N --skip-fresh ซ้ำจึงได้ชุดถัดไปทีละ N ตัว ไม่วนชุดเดิม
+    if args.limit:
+        symbols = symbols[: args.limit]
 
     # เก็บผลเต็มไว้เฉพาะเมื่อต้องเขียน JSON — ทั้งตลาดมีราคาเกือบล้านแถว ไม่ควรค้างในหน่วยความจำ
     results, succeeded, failed = [], 0, []

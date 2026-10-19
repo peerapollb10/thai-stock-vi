@@ -1,25 +1,52 @@
-Status: บันทึก Global Working Rules (UI Code & Verification Standard) ลงไฟล์กฎระดับผู้ใช้ — มีผลกับทุกโปรเจกต์ใน session ใหม่
+Status: Phase 6 push ขึ้น GitHub แล้ว + ทดสอบดึงหุ้นจริง (Retry / Delay / --limit + --skip-fresh) ผ่านทั้งหมด พร้อมแก้บั๊กลำดับ --limit
 
 Completed Tasks:
-- เลือกตำแหน่ง: C:\Users\LB\.claude\CLAUDE.md (User memory ของ Claude Code โหลดทุก session ทุกโปรเจกต์)
-  ไม่ใช้ระบบ memory ของโปรเจกต์ เพราะมีผลเฉพาะโปรเจกต์ Thai Stock VI
-- ตรวจก่อนเขียน: ไฟล์ยังไม่มีอยู่ → สร้างใหม่ ไม่ได้เขียนทับของเดิม
-- กฎ 2 ข้อ: (1) ตรวจเอง (build/lint/Logic) และแก้ต่อทันทีโดยไม่รอผู้ใช้ (2) สรุป UI Preview เป็นข้อๆ
-  พร้อม Layout/สี/ปุ่ม/ตาราง/Responsive/State และเทียบกับโจทย์
-- เพิ่ม 1 บรรทัดในกฎข้อ 2: ถ้ามองหน้าจอจริงไม่ได้ ให้บอกว่าตรวจส่วนไหนด้วยวิธีใด และห้ามอ้างว่าเห็นหน้าจอจริง
+- ตรวจโค้ดก่อน commit: npm run lint ผ่าน, tsc --noEmit ผ่าน, py_compile ผ่าน, node --check finish.js/notify.js ผ่าน, npm run build ผ่าน (17 หน้า)
+- git commit cda4150 "feat: Phase 6 - finish protocol command, autonomous rules, full SET fetch options" (10 ไฟล์)
+  git push: aaf89fd..cda4150 → origin/main
+  - Global Rules (C:\Users\LB\.claude\CLAUDE.md) อยู่นอก repo จึงไม่ได้ขึ้น GitHub (เป็นไฟล์ส่วนตัวของผู้ใช้)
+- data/set_symbols.csv: ยังไม่มีไฟล์ (โฟลเดอร์ data/ ยังไม่มี) → ทดสอบด้วยรายชื่อ 10 ตัวเดิมแทน (upsert ทับของเดิม ไม่เพิ่มหุ้นใหม่บนเว็บ)
+- ทดสอบ Retry (จำลอง YFRateLimitError, ไม่ใช้เน็ต):
+  - ล้ม 2 ครั้งแล้วสำเร็จ → 3 attempts, รอแบบเท่าตัว (ของจริง 30 → 60 → 120 วินาที)
+  - ล้มเกิน → โยน error หลัง 4 attempts; error ชนิดอื่น → ไม่ retry (1 attempt)
+- พบบั๊กและแก้แล้ว: --limit ถูกตัดก่อน --skip-fresh ทำให้รันซ้ำวนชุดเดิมแล้วได้ 0 ตัว → ย้ายไปตัดหลังข้ามตัวที่สดแล้ว
+- ทดสอบจริง (Yahoo → Supabase) หลังแก้:
+  - รอบ 1 --limit 3 --skip-fresh 20: ข้าม 0 → PTT, BDMS, ADVANC สำเร็จ 3/3 (16 วินาที)
+  - รอบ 2 คำสั่งเดิม: ข้าม 3 → CPALL, SCC, KBANK สำเร็จ 3/3 (15 วินาที) — ได้ชุดถัดไปถูกต้อง
+  - รอบ 3 --skip-fresh 20: ข้าม 6 → AOT, TISCO, CPN, DELTA สำเร็จ 4/4
+  - Supabase: stocks 10 (อัปเดตวันนี้ครบ 10), stock_financials 40, stock_prices 14,530 (+10 วันใหม่), ราคาล่าสุด PTT 2026-10-19
+- ตรวจ UI ด้วย HTTP request บน dev server (http://localhost:3000) — ทุกหน้า 200, ไม่มีคำว่า "จำลอง"
+
+UI Preview (ตรวจจาก HTML ที่เซิร์ฟเวอร์ส่งมา — ไม่ได้เห็นหน้าจอจริง):
+- Layout ทุกหน้า: Sidebar ซ้าย (โลโก้ Thai VI สีเขียว emerald, เมนู, ท้ายสุด "Supabase · 10 หลักทรัพย์ / Yahoo Finance · อัปเดต วันที่")
+  + Navbar บน + เนื้อหาขวา; มือถือ Sidebar ซ่อนเป็นเมนูเลื่อนพร้อมฉากหลังมืด
+- Dashboard (/): หัวข้อ "ภาพรวมตลาด · ข้อมูลจริงจาก Yahoo Finance 10 หลักทรัพย์"; การ์ด 4 ใบ (มูลค่าตลาดรวม, P/E/Yield/ROE ค่ามัธยฐาน)
+  1 คอลัมน์บนมือถือ → 2 → 4; กล่องเขียว "ผ่านเกณฑ์ VI พื้นฐาน"; การ์ดอันดับ 3 ใบ; ตารางมูลค่าตามกลุ่มอุตสาหกรรม (เลื่อนแนวนอนได้)
+- รายชื่อหุ้น (/stocks): ช่องค้นหา + dropdown กลุ่มอุตสาหกรรม (สร้างจากข้อมูลจริง เช่น Banking), ตัวกรอง VI, "พบ 10 จาก 10 หลักทรัพย์",
+  ตารางเรียงลำดับได้; Empty state "ไม่พบหุ้นที่ตรงกับเงื่อนไข" + ปุ่มล้างตัวกรอง
+- หุ้นรายตัว (/stocks/PTT): หัว "PTT · PTT Public Company Limited · Energy & Utilities" + ราคาใหญ่ด้านขวา; การ์ด 6 ใบ (2 → 3 → 6 คอลัมน์);
+  กราฟราคาพร้อมปุ่ม 1 ปี / 3 ปี / ทั้งหมด (aria-pressed); กราฟปันผล + ตาราง Yield (แถว "เฉลี่ย 4 ปี"); กราฟรายได้/รายจ่าย/กำไร 4 ปี;
+  ตารางงบการเงิน; ช่อง Note ส่วนตัว
+- Watchlist: ส่งมาเป็น Loading skeleton (animate-pulse) ก่อน แล้วโหลดรายการจาก Supabase ฝั่งเบราว์เซอร์
+- State: Loading = skeleton (loading.tsx), Error = กล่องขอบแดง + ปุ่ม "ลองอีกครั้ง" (error.tsx), Not found = /stocks/NOPE แสดงหน้า 404
+- เทียบโจทย์: Phase 6 ไม่ได้เปลี่ยน UI นอกจาก type Sector — dropdown กลุ่มและตารางกลุ่มยังแสดงถูกต้อง;
+  ที่ควรดูด้วยตาเอง: สี/ระยะห่าง, กราฟราคาตอนกดเปลี่ยนช่วง, เมนูบนมือถือ
 
 Files Modified / Created:
-- C:\Users\LB\.claude\CLAUDE.md (ใหม่ — นอกโปรเจกต์, ไม่อยู่ใน git)
-  - หัวข้อ "Global Working Rules" > "UI Code & Verification Standard" ข้อ 1 Self-Verification, ข้อ 2 Visual UI Preview
-  - เหตุผล: ผู้ใช้ต้องการให้กฎมีผลกับทุกโปรเจกต์
+- C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\scripts\fetch_stocks.py
+  - main(): ย้าย `if args.limit: symbols = symbols[: args.limit]` จากก่อนสร้าง client ไปไว้หลังบล็อก --skip-fresh
+  - เหตุผล: ให้ --limit N --skip-fresh รันซ้ำแล้วได้ชุดถัดไปทีละ N ตัว
+- C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\task.md — Phase 6 เพิ่ม 2 ข้อ (ทดสอบผ่าน, แก้ลำดับ --limit)
 - C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\summary.txt — เขียนทับด้วยสรุปรอบนี้
+- (ข้อมูลใน Supabase: อัปเดตหุ้นทั้ง 10 ตัวเป็นวันที่ 2026-10-19)
 
 Next Step:
-- กฎจะมีผลใน session ถัดไป (หรือหลังเริ่ม Claude Code ใหม่); ดู/แก้ได้ด้วยคำสั่ง /memory
-- งาน Phase 6 (finish.js, กฎ Autonomous, fetch ทั้งตลาด) ยังไม่ได้ commit
+- ดาวน์โหลดรายชื่อบริษัทจดทะเบียนจาก set.or.th → Save As CSV ที่ data/set_symbols.csv แล้วสั่งดึงทั้งตลาด
+  (แนะนำทดสอบก่อนด้วย --limit 20 --skip-fresh 20 แล้วค่อยรันเต็ม)
 
 Prompt for Gemini:
-ผู้ใช้ตั้ง Global Working Rules ใน ~/.claude/CLAUDE.md: ตรวจโค้ดเอง (build/lint) และแก้ต่อทันที,
-และทุกงาน UI ต้องสรุป UI Preview เป็นข้อๆ (Layout, สี, ปุ่ม, ตาราง, Responsive, State) เทียบกับโจทย์.
+โปรเจกต์ Thai Stock VI Dashboard: Phase 6 อยู่บน GitHub แล้ว (cda4150 + commit แก้ลำดับ --limit).
+ทดสอบ fetch_stocks.py กับ Yahoo + Supabase จริง: retry/delay/--skip-fresh แบ่งชุดทำงานถูกต้อง, ข้อมูลหุ้น 10 ตัวอัปเดตเป็น 2026-10-19.
+รอไฟล์ data/set_symbols.csv จากผู้ใช้เพื่อดึงทั้งตลาด SET.
 
-Last Updated: 2026-10-19 10:49:33
+Last Updated: 2026-10-19 11:02:11

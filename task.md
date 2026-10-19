@@ -42,4 +42,6 @@
 - [x] `npm run finish`: Finish Protocol คำสั่งเดียว (Clipboard + LINE + ป๊อปอัป Windows แสดงผลการส่ง LINE)
 - [x] กฎ Autonomous Mode ใน CLAUDE.md + allow/deny ใน `.claude/settings.json`
 - [x] นโยบายดึงข้อมูลหุ้น SET ใน CLAUDE.md + `fetch_stocks.py` รองรับ `--symbols-file`, `--market`, `--limit`, `--delay`, `--skip-fresh`, retry เมื่อถูกจำกัดคำขอ
-- [ ] ผู้ใช้ดาวน์โหลดรายชื่อหุ้นจากเว็บ SET เป็น `data/set_symbols.csv` แล้วสั่งรันดึงทั้งตลาด
+- [x] ทดสอบระบบ Retry (จำลอง rate limit), Delay และ `--limit` + `--skip-fresh` แบบแบ่งชุด กับ Yahoo + Supabase จริง (10/10 ตัว ไม่มี error)
+- [x] แก้ลำดับ `--limit` ให้ตัดหลัง `--skip-fresh` (รันซ้ำได้ชุดถัดไป ไม่วนชุดเดิม)
+- [ ] ผู้ใช้ดาวน์โหลดรายชื่อหุ้นจากเว็บ SET เป็น `data/set_symbols.csv` แล้วสั่งรันดึงทั้งตลาด (ยังไม่มีไฟล์)
