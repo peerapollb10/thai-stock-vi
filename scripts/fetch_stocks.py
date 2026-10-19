@@ -10,21 +10,30 @@
   npm run fetch-stocks -- --symbols PTT KBANK       ดึงเฉพาะบางตัว (ชื่อย่อ SET ไม่ต้องมี .BK)
   npm run fetch-stocks -- --dry-run --out out.json  ไม่เขียน Supabase, บันทึกผลเป็น JSON แทน
 
+ดึงทั้งตลาด (ดูนโยบายใน CLAUDE.md หัวข้อ "นโยบายการดึงข้อมูลหุ้น SET"):
+  npm run fetch-stocks -- --symbols-file data/set_symbols.csv --market SET --period 2y --skip-fresh 20
+  ไฟล์รายชื่อ: CSV ที่มีคอลัมน์ Symbol (และ Market / Sector ถ้ามี) หรือ TXT บรรทัดละ 1 ชื่อย่อ
+  ดาวน์โหลดรายชื่อบริษัทจดทะเบียนจากเว็บไซต์ SET ด้วยเบราว์เซอร์แล้ว Save As CSV
+  (เว็บ SET มีระบบกันบอท จึงไม่ดึงอัตโนมัติ และ Yahoo screener ไม่มีหุ้นไทย)
+
 ต้องมีใน .env.local: NEXT_PUBLIC_SUPABASE_URL และ SUPABASE_SECRET_KEY (sb_secret_... หรือ service_role key)
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import os
 import sys
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
+from yfinance.exceptions import YFRateLimitError
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -47,6 +56,43 @@ MILLION = 1_000_000
 PRICE_BATCH = 500
 # ปันผลที่ XD ก่อนเดือนนี้ถือเป็นปันผลงวดสุดท้ายของปีก่อน (หุ้นไทยส่วนใหญ่จ่ายงวดสุดท้ายช่วง มี.ค.–พ.ค.)
 INTERIM_FROM_MONTH = 7
+# Yahoo จำกัดจำนวนคำขอ — ลองใหม่โดยรอนานขึ้นทีละเท่า (30, 60, 120 วินาที)
+RETRIES = 3
+RETRY_BASE_SECONDS = 30
+
+
+def load_symbol_file(path: Path, market: str | None) -> tuple[list[str], dict[str, str]]:
+    """อ่านรายชื่อหุ้นจาก CSV (คอลัมน์ Symbol, Market, Sector — ไม่สนตัวพิมพ์เล็กใหญ่) หรือ TXT บรรทัดละ 1 ตัว
+
+    คืน (รายชื่อตามลำดับในไฟล์ไม่ซ้ำ, กลุ่มอุตสาหกรรมจากไฟล์)
+    """
+    text = path.read_text(encoding="utf-8-sig")
+    if path.suffix.lower() != ".csv":
+        symbols = [line.strip().upper() for line in text.splitlines() if line.strip() and not line.startswith("#")]
+        return list(dict.fromkeys(symbols)), {}
+
+    symbols, sectors = [], {}
+    for row in csv.DictReader(text.splitlines()):
+        row = {(key or "").strip().lower(): (value or "").strip() for key, value in row.items()}
+        symbol = row.get("symbol", "").upper()
+        if not symbol or (market and row.get("market", "").upper() not in ("", market.upper())):
+            continue
+        symbols.append(symbol)
+        if row.get("sector"):
+            sectors[symbol] = row["sector"]
+    return list(dict.fromkeys(symbols)), sectors
+
+
+def fresh_symbols(client, hours: float) -> set[str]:
+    """หุ้นที่อัปเดตใน Supabase ภายใน N ชั่วโมง — ใช้ข้ามตอนรันต่อจากรอบที่ค้าง/ถูกจำกัดคำขอ"""
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    fresh, start = set(), 0
+    while True:
+        rows = client.table("stocks").select("symbol").gte("updated_at", since).range(start, start + 999).execute().data
+        fresh.update(row["symbol"] for row in rows)
+        if len(rows) < 1000:
+            return fresh
+        start += 1000
 
 
 def clean(value):
@@ -196,17 +242,45 @@ def save(client, data: dict) -> None:
         client.table("stock_prices").upsert(prices[start:start + PRICE_BATCH]).execute()
 
 
+def fetch_with_retry(symbol: str, sector: str, period: str) -> dict:
+    """fetch() พร้อมลองใหม่เมื่อ Yahoo จำกัดจำนวนคำขอ (รันทั้งตลาดเจอบ่อย)"""
+    for attempt in range(RETRIES + 1):
+        try:
+            return fetch(symbol, sector, period)
+        except YFRateLimitError:
+            if attempt == RETRIES:
+                raise
+            wait = RETRY_BASE_SECONDS * 2**attempt
+            print(f"  … {symbol} ถูก Yahoo จำกัดคำขอ รอ {wait} วินาทีแล้วลองใหม่ ({attempt + 1}/{RETRIES})", file=sys.stderr)
+            time.sleep(wait)
+    raise AssertionError("unreachable")
+
+
 def main() -> int:
     # คอนโซล Windows ค่าเริ่มต้นไม่ใช่ UTF-8 — ป้องกันข้อความภาษาไทยพัง
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(description="ดึงข้อมูลหุ้นไทยจาก yfinance แล้ว upsert เข้า Supabase")
-    parser.add_argument("--symbols", nargs="+", type=str.upper, default=list(STOCKS), help="ชื่อย่อ SET เช่น PTT KBANK")
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--symbols", nargs="+", type=str.upper, help="ชื่อย่อ SET เช่น PTT KBANK (ค่าเริ่มต้น: รายชื่อใน STOCKS)")
+    source.add_argument("--symbols-file", type=Path, help="ไฟล์รายชื่อหุ้น .csv (คอลัมน์ Symbol/Market/Sector) หรือ .txt สำหรับดึงทั้งตลาด")
+    parser.add_argument("--market", choices=["SET", "mai"], help="กรองตามคอลัมน์ Market ในไฟล์รายชื่อ")
+    parser.add_argument("--limit", type=int, help="ดึงแค่ N ตัวแรก (ใช้ทดสอบก่อนรันทั้งตลาด)")
     parser.add_argument("--period", default="6y", help="ช่วงราคาย้อนหลังของ yfinance (ค่าเริ่มต้น 6y ให้ครอบคลุมงบ 5 ปี)")
+    parser.add_argument("--delay", type=float, default=1.0, help="หน่วงระหว่างหุ้นแต่ละตัว (วินาที) ลดโอกาสถูก Yahoo จำกัดคำขอ")
+    parser.add_argument("--skip-fresh", type=float, metavar="HOURS", help="ข้ามหุ้นที่อัปเดตใน Supabase ภายใน N ชั่วโมง (รันต่อจากรอบที่ค้าง)")
     parser.add_argument("--dry-run", action="store_true", help="ไม่เขียน Supabase")
     parser.add_argument("--out", type=Path, help="บันทึกผลเป็นไฟล์ JSON")
     args = parser.parse_args()
+
+    file_sectors: dict[str, str] = {}
+    if args.symbols_file:
+        symbols, file_sectors = load_symbol_file(args.symbols_file, args.market)
+    else:
+        symbols = args.symbols or list(STOCKS)
+    if args.limit:
+        symbols = symbols[: args.limit]
 
     client = None
     if not args.dry_run:
@@ -218,29 +292,43 @@ def main() -> int:
             return 1
         from supabase import create_client
         client = create_client(url, key)
+        if args.skip_fresh:
+            fresh = fresh_symbols(client, args.skip_fresh)
+            skipped = [symbol for symbol in symbols if symbol in fresh]
+            symbols = [symbol for symbol in symbols if symbol not in fresh]
+            print(f"ข้าม {len(skipped)} ตัวที่อัปเดตภายใน {args.skip_fresh:g} ชั่วโมง")
 
-    results, failed = [], []
-    for symbol in args.symbols:
+    # เก็บผลเต็มไว้เฉพาะเมื่อต้องเขียน JSON — ทั้งตลาดมีราคาเกือบล้านแถว ไม่ควรค้างในหน่วยความจำ
+    results, succeeded, failed = [], 0, []
+    total = len(symbols)
+    for index, symbol in enumerate(symbols, start=1):
+        if index > 1 and args.delay:
+            time.sleep(args.delay)
+        sector = STOCKS.get(symbol) or file_sectors.get(symbol) or "Other"
         try:
-            data = fetch(symbol, STOCKS.get(symbol, "Other"), args.period)
+            data = fetch_with_retry(symbol, sector, args.period)
             if client:
                 save(client, data)
-            results.append(data)
+            if args.out:
+                results.append(data)
+            succeeded += 1
             stock = data["stock"]
             print(
-                f"✓ {symbol:<7} ราคา {stock['price']} | P/E {stock['pe']} | P/BV {stock['pbv']} | "
+                f"✓ [{index}/{total}] {symbol:<7} ราคา {stock['price']} | P/E {stock['pe']} | P/BV {stock['pbv']} | "
                 f"Yield {stock['dividend_yield']}% | งบ {len(data['financials'])} ปี | ราคา {len(data['prices'])} วัน"
             )
         except Exception as error:  # หุ้นตัวเดียวพังไม่ควรหยุดทั้งรอบ
             failed.append(symbol)
-            print(f"✗ {symbol:<7} {error}", file=sys.stderr)
+            print(f"✗ [{index}/{total}] {symbol:<7} {error}", file=sys.stderr)
 
     if args.out:
         args.out.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"บันทึก JSON ที่ {args.out}")
 
     target = "dry-run (ไม่ได้เขียน Supabase)" if args.dry_run else "เขียนเข้า Supabase แล้ว"
-    print(f"\nสำเร็จ {len(results)}/{len(args.symbols)} ตัว — {target}")
+    print(f"\nสำเร็จ {succeeded}/{total} ตัว — {target}")
+    if failed:
+        print(f"ล้มเหลว {len(failed)} ตัว: {' '.join(failed)}", file=sys.stderr)
     return 1 if failed else 0
 
 

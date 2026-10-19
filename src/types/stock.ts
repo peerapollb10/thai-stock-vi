@@ -1,4 +1,10 @@
+/**
+ * กลุ่มอุตสาหกรรม: ชื่อที่ใช้กับ STOCKS ใน fetch_stocks.py ช่วย autocomplete
+ * แต่รับข้อความอื่นได้ เพราะการดึงทั้งตลาดใช้ชื่อกลุ่มจากไฟล์รายชื่อของ SET
+ * (`string & {}` กันไม่ให้ TypeScript ยุบ union ทั้งหมดเหลือแค่ string)
+ */
 export type Sector =
+  | (string & {})
   | "Energy & Utilities"
   | "Health Care Services"
   | "Information & Communication Technology"

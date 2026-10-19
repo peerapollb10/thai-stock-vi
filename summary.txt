@@ -1,23 +1,25 @@
-Status: Dev server พร้อมใช้งานที่ http://localhost:3000 (npm run dev)
+Status: บันทึก Global Working Rules (UI Code & Verification Standard) ลงไฟล์กฎระดับผู้ใช้ — มีผลกับทุกโปรเจกต์ใน session ใหม่
 
 Completed Tasks:
-- ปิด production server (npm run start) ที่ใช้พอร์ต 3000 อยู่ก่อน เพื่อไม่ให้ชนพอร์ต
-- npm run dev: Next.js 16.4.2 Turbopack, Ready in 718ms รันเบื้องหลัง (โหลด .env.local, Cache Components + Partial Prefetching)
-  - Local: http://localhost:3000 / Network: http://192.168.3.78:3000
-  - ทดสอบ GET / ได้ 200 (1.6s คอมไพล์ครั้งแรก), GET /stocks/PTT ได้ 200 (2.3s)
-  - .next/dev เป็น cache ใหม่หลังลบ .next รอบก่อน จึงไม่มีข้อความ "ข้อมูลจำลอง" เก่าค้าง
-- รอบนี้ไม่ได้แก้โค้ด
+- เลือกตำแหน่ง: C:\Users\LB\.claude\CLAUDE.md (User memory ของ Claude Code โหลดทุก session ทุกโปรเจกต์)
+  ไม่ใช้ระบบ memory ของโปรเจกต์ เพราะมีผลเฉพาะโปรเจกต์ Thai Stock VI
+- ตรวจก่อนเขียน: ไฟล์ยังไม่มีอยู่ → สร้างใหม่ ไม่ได้เขียนทับของเดิม
+- กฎ 2 ข้อ: (1) ตรวจเอง (build/lint/Logic) และแก้ต่อทันทีโดยไม่รอผู้ใช้ (2) สรุป UI Preview เป็นข้อๆ
+  พร้อม Layout/สี/ปุ่ม/ตาราง/Responsive/State และเทียบกับโจทย์
+- เพิ่ม 1 บรรทัดในกฎข้อ 2: ถ้ามองหน้าจอจริงไม่ได้ ให้บอกว่าตรวจส่วนไหนด้วยวิธีใด และห้ามอ้างว่าเห็นหน้าจอจริง
 
 Files Modified / Created:
+- C:\Users\LB\.claude\CLAUDE.md (ใหม่ — นอกโปรเจกต์, ไม่อยู่ใน git)
+  - หัวข้อ "Global Working Rules" > "UI Code & Verification Standard" ข้อ 1 Self-Verification, ข้อ 2 Visual UI Preview
+  - เหตุผล: ผู้ใช้ต้องการให้กฎมีผลกับทุกโปรเจกต์
 - C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\summary.txt — เขียนทับด้วยสรุปรอบนี้
 
 Next Step:
-- เปิด http://localhost:3000 ทดสอบ: Dashboard, /stocks (ตัวกรอง VI), กราฟราคาใน /stocks/PTT, Watchlist และท้าย Sidebar
-- ถ้าเบราว์เซอร์ยังแสดงข้อความเก่า ให้กด Ctrl+Shift+R
-- ยังไม่ได้ commit งาน Phase 5 ทั้งหมด
+- กฎจะมีผลใน session ถัดไป (หรือหลังเริ่ม Claude Code ใหม่); ดู/แก้ได้ด้วยคำสั่ง /memory
+- งาน Phase 6 (finish.js, กฎ Autonomous, fetch ทั้งตลาด) ยังไม่ได้ commit
 
 Prompt for Gemini:
-โปรเจกต์ Thai Stock VI Dashboard (Next.js 16 + Supabase) เปิด dev server ที่ http://localhost:3000 แล้ว (หน้าแรกและ /stocks/PTT ได้ 200).
-หน้าเว็บแสดงข้อมูลหุ้นจริงจาก Supabase; งาน Phase 5 ยังไม่ได้ commit.
+ผู้ใช้ตั้ง Global Working Rules ใน ~/.claude/CLAUDE.md: ตรวจโค้ดเอง (build/lint) และแก้ต่อทันที,
+และทุกงาน UI ต้องสรุป UI Preview เป็นข้อๆ (Layout, สี, ปุ่ม, ตาราง, Responsive, State) เทียบกับโจทย์.
 
-Last Updated: 2026-10-17 17:01:11
+Last Updated: 2026-10-19 10:49:33

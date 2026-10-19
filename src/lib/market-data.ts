@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
-import type { PricePoint, Sector, Stock, YearlyFinancials } from "@/types/stock";
+import type { PricePoint, Stock, YearlyFinancials } from "@/types/stock";
 
 /**
  * อ่านข้อมูลตลาดจริงจาก Supabase (ตาราง stocks / stock_financials / stock_prices จาก supabase/market_data.sql)
@@ -87,8 +87,7 @@ function toStock(row: StockRow, history: YearlyFinancials[]): Stock {
   return {
     symbol: row.symbol,
     name: row.name,
-    // ค่ากลุ่มอุตสาหกรรมมาจาก STOCKS ใน scripts/fetch_stocks.py ซึ่งใช้ชื่อตาม type Sector
-    sector: (row.sector ?? "Other") as Sector,
+    sector: row.sector ?? "Other",
     sharesOutstanding: num(row.shares_outstanding),
     price: num(row.price),
     pe: num(row.pe),

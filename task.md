@@ -37,3 +37,9 @@
 - [x] ลบป้าย "ข้อมูลจำลอง" ที่ Sidebar → แสดงจำนวนหุ้นจริงในตาราง stocks + วันที่อัปเดต (`DataSourceNote`)
 - [x] อ่านทุกตาราง (stocks / stock_financials / stock_prices) แบบแบ่งหน้า ไม่ถูกตัดที่ 1,000 แถวเมื่อเพิ่มหุ้น
 - [x] ตรวจซ้ำ: ไม่มีคำว่า "จำลอง" ใน src/ และใน build ใหม่ — ลบ cache .next เก่า (dev cache ยังมีข้อความเดิม) แล้ว build ใหม่
+
+## Phase 6: Tooling & Full-Market Data
+- [x] `npm run finish`: Finish Protocol คำสั่งเดียว (Clipboard + LINE + ป๊อปอัป Windows แสดงผลการส่ง LINE)
+- [x] กฎ Autonomous Mode ใน CLAUDE.md + allow/deny ใน `.claude/settings.json`
+- [x] นโยบายดึงข้อมูลหุ้น SET ใน CLAUDE.md + `fetch_stocks.py` รองรับ `--symbols-file`, `--market`, `--limit`, `--delay`, `--skip-fresh`, retry เมื่อถูกจำกัดคำขอ
+- [ ] ผู้ใช้ดาวน์โหลดรายชื่อหุ้นจากเว็บ SET เป็น `data/set_symbols.csv` แล้วสั่งรันดึงทั้งตลาด
