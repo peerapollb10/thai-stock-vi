@@ -28,6 +28,7 @@ import math
 import os
 import sys
 import time
+from html.parser import HTMLParser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -38,18 +39,19 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# ชื่อย่อ SET → กลุ่มอุตสาหกรรมตาม type Sector (Yahoo ใช้ชื่อกลุ่มคนละแบบกับ SET)
+# ชื่อย่อ SET → หมวดธุรกิจ ใช้ชื่อเดียวกับคอลัมน์ "หมวดธุรกิจ" ในไฟล์รายชื่อของเว็บ SET
+# เพื่อให้รันแบบปกติและแบบทั้งตลาดได้ชื่อกลุ่มตรงกัน (Yahoo ใช้ชื่อกลุ่มคนละแบบกับ SET)
 STOCKS: dict[str, str] = {
-    "PTT": "Energy & Utilities",
-    "BDMS": "Health Care Services",
-    "ADVANC": "Information & Communication Technology",
-    "CPALL": "Commerce",
-    "SCC": "Construction Materials",
-    "KBANK": "Banking",
-    "AOT": "Transportation & Logistics",
-    "TISCO": "Banking",
-    "CPN": "Property Development",
-    "DELTA": "Electronic Components",
+    "PTT": "พลังงานและสาธารณูปโภค",
+    "BDMS": "การแพทย์",
+    "ADVANC": "เทคโนโลยีสารสนเทศและการสื่อสาร",
+    "CPALL": "พาณิชย์",
+    "SCC": "วัสดุก่อสร้าง",
+    "KBANK": "ธนาคาร",
+    "AOT": "ขนส่งและโลจิสติกส์",
+    "TISCO": "ธนาคาร",
+    "CPN": "พัฒนาอสังหาริมทรัพย์",
+    "DELTA": "ชิ้นส่วนอิเล็กทรอนิกส์",
 }
 
 MILLION = 1_000_000
@@ -61,25 +63,93 @@ RETRIES = 3
 RETRY_BASE_SECONDS = 30
 
 
+# หัวคอลัมน์ที่รองรับ (ไฟล์ที่ผู้ใช้ทำเอง = อังกฤษ, ไฟล์รายชื่อบริษัทจดทะเบียนจากเว็บ SET = ไทย)
+COLUMN_ALIASES = {
+    "symbol": ("symbol", "หลักทรัพย์"),
+    "market": ("market", "ตลาด"),
+    "sector": ("sector", "หมวดธุรกิจ", "industry", "กลุ่มอุตสาหกรรม"),
+}
+
+
+class _TableParser(HTMLParser):
+    """แปลง <table> เป็น list ของแถว — ไฟล์ "Excel" จากเว็บ SET จริงๆ คือตาราง HTML"""
+
+    def __init__(self):
+        super().__init__()
+        self.rows: list[list[str]] = []
+        self._row: list[str] | None = None
+        self._cell: list[str] | None = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._row = []
+        elif tag in ("td", "th") and self._row is not None:
+            self._cell = []
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self._cell is not None and self._row is not None:
+            self._row.append(" ".join("".join(self._cell).split()))
+            self._cell = None
+        elif tag == "tr" and self._row is not None:
+            self.rows.append(self._row)
+            self._row = None
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+
+def _read_text(path: Path) -> str:
+    """UTF-8 ก่อน ถ้าไม่ใช่ถือว่าเป็น TIS-620 (cp874) ซึ่งเว็บ SET ใช้"""
+    raw = path.read_bytes()
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp874")
+
+
+def _table_rows(text: str, is_csv: bool) -> list[dict[str, str]]:
+    """คืนแถวข้อมูลเป็น dict ตามหัวคอลัมน์ (ตัวพิมพ์เล็ก) จากตาราง HTML หรือ CSV"""
+    if text.lstrip().lower().startswith(("<table", "<html", "<!doctype")):
+        parser = _TableParser()
+        parser.feed(text)
+        # แถวหัวตาราง = แถวแรกที่มีคอลัมน์ชื่อหุ้น (เว็บ SET มีแถวชื่อรายงานอยู่ก่อน)
+        names = COLUMN_ALIASES["symbol"]
+        header_index = next(i for i, row in enumerate(parser.rows) if any(cell.lower() in names for cell in row))
+        header = [cell.lower() for cell in parser.rows[header_index]]
+        return [dict(zip(header, row)) for row in parser.rows[header_index + 1 :] if len(row) == len(header)]
+    if is_csv:
+        return [
+            {(key or "").strip().lower(): (value or "").strip() for key, value in row.items()}
+            for row in csv.DictReader(text.splitlines())
+        ]
+    return []
+
+
+def _pick(row: dict[str, str], field: str) -> str:
+    return next((row[name] for name in COLUMN_ALIASES[field] if row.get(name)), "")
+
+
 def load_symbol_file(path: Path, market: str | None) -> tuple[list[str], dict[str, str]]:
-    """อ่านรายชื่อหุ้นจาก CSV (คอลัมน์ Symbol, Market, Sector — ไม่สนตัวพิมพ์เล็กใหญ่) หรือ TXT บรรทัดละ 1 ตัว
+    """อ่านรายชื่อหุ้นจาก CSV, ตาราง HTML จากเว็บ SET (หัวคอลัมน์ไทย, cp874) หรือ TXT บรรทัดละ 1 ตัว
 
     คืน (รายชื่อตามลำดับในไฟล์ไม่ซ้ำ, กลุ่มอุตสาหกรรมจากไฟล์)
     """
-    text = path.read_text(encoding="utf-8-sig")
-    if path.suffix.lower() != ".csv":
+    text = _read_text(path)
+    rows = _table_rows(text, is_csv=path.suffix.lower() == ".csv")
+    if not rows:
         symbols = [line.strip().upper() for line in text.splitlines() if line.strip() and not line.startswith("#")]
         return list(dict.fromkeys(symbols)), {}
 
     symbols, sectors = [], {}
-    for row in csv.DictReader(text.splitlines()):
-        row = {(key or "").strip().lower(): (value or "").strip() for key, value in row.items()}
-        symbol = row.get("symbol", "").upper()
-        if not symbol or (market and row.get("market", "").upper() not in ("", market.upper())):
+    for row in rows:
+        symbol = _pick(row, "symbol").upper()
+        row_market = _pick(row, "market").upper()
+        if not symbol or (market and row_market not in ("", market.upper())):
             continue
         symbols.append(symbol)
-        if row.get("sector"):
-            sectors[symbol] = row["sector"]
+        if sector := _pick(row, "sector"):
+            sectors[symbol] = sector
     return list(dict.fromkeys(symbols)), sectors
 
 
@@ -306,7 +376,8 @@ def main() -> int:
     for index, symbol in enumerate(symbols, start=1):
         if index > 1 and args.delay:
             time.sleep(args.delay)
-        sector = STOCKS.get(symbol) or file_sectors.get(symbol) or "Other"
+        # หมวดธุรกิจจากไฟล์ SET มาก่อน ชื่อกลุ่มจึงเป็นมาตรฐานเดียวกันทั้งตลาด; STOCKS ใช้เมื่อไม่ได้ระบุไฟล์
+        sector = file_sectors.get(symbol) or STOCKS.get(symbol) or "Other"
         try:
             data = fetch_with_retry(symbol, sector, args.period)
             if client:

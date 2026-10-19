@@ -11,7 +11,8 @@
     "notify": "node scripts/notify.js",
     "send-line": "node scripts/send-line.js",
     "finish": "node scripts/finish.js",
-    "check-supabase": "node scripts/check-supabase.js",
+    "bot": "node scripts/line_bot.js",
+    "check-supabase":"node scripts/check-supabase.js",
     "fetch-stocks": ".venv\\Scripts\\python scripts/fetch_stocks.py"
   },
   "dependencies": {

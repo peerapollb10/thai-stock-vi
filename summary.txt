@@ -1,52 +1,37 @@
-Status: Phase 6 push ขึ้น GitHub แล้ว + ทดสอบดึงหุ้นจริง (Retry / Delay / --limit + --skip-fresh) ผ่านทั้งหมด พร้อมแก้บั๊กลำดับ --limit
+Status: แก้กฎ curl ใน settings.json และ commit งานค้างทั้งหมดแล้ว — LINE Bot พร้อมทดสอบคิวในแชทจริง
 
 Completed Tasks:
-- ตรวจโค้ดก่อน commit: npm run lint ผ่าน, tsc --noEmit ผ่าน, py_compile ผ่าน, node --check finish.js/notify.js ผ่าน, npm run build ผ่าน (17 หน้า)
-- git commit cda4150 "feat: Phase 6 - finish protocol command, autonomous rules, full SET fetch options" (10 ไฟล์)
-  git push: aaf89fd..cda4150 → origin/main
-  - Global Rules (C:\Users\LB\.claude\CLAUDE.md) อยู่นอก repo จึงไม่ได้ขึ้น GitHub (เป็นไฟล์ส่วนตัวของผู้ใช้)
-- data/set_symbols.csv: ยังไม่มีไฟล์ (โฟลเดอร์ data/ ยังไม่มี) → ทดสอบด้วยรายชื่อ 10 ตัวเดิมแทน (upsert ทับของเดิม ไม่เพิ่มหุ้นใหม่บนเว็บ)
-- ทดสอบ Retry (จำลอง YFRateLimitError, ไม่ใช้เน็ต):
-  - ล้ม 2 ครั้งแล้วสำเร็จ → 3 attempts, รอแบบเท่าตัว (ของจริง 30 → 60 → 120 วินาที)
-  - ล้มเกิน → โยน error หลัง 4 attempts; error ชนิดอื่น → ไม่ retry (1 attempt)
-- พบบั๊กและแก้แล้ว: --limit ถูกตัดก่อน --skip-fresh ทำให้รันซ้ำวนชุดเดิมแล้วได้ 0 ตัว → ย้ายไปตัดหลังข้ามตัวที่สดแล้ว
-- ทดสอบจริง (Yahoo → Supabase) หลังแก้:
-  - รอบ 1 --limit 3 --skip-fresh 20: ข้าม 0 → PTT, BDMS, ADVANC สำเร็จ 3/3 (16 วินาที)
-  - รอบ 2 คำสั่งเดิม: ข้าม 3 → CPALL, SCC, KBANK สำเร็จ 3/3 (15 วินาที) — ได้ชุดถัดไปถูกต้อง
-  - รอบ 3 --skip-fresh 20: ข้าม 6 → AOT, TISCO, CPN, DELTA สำเร็จ 4/4
-  - Supabase: stocks 10 (อัปเดตวันนี้ครบ 10), stock_financials 40, stock_prices 14,530 (+10 วันใหม่), ราคาล่าสุด PTT 2026-10-19
-- ตรวจ UI ด้วย HTTP request บน dev server (http://localhost:3000) — ทุกหน้า 200, ไม่มีคำว่า "จำลอง"
+- แก้กฎ allow ใน .claude/settings.json: "Bash(curl * http://localhost:*)" (ผสม * กับ :* จึงไม่มีวันตรง)
+  → "Bash(curl http://localhost*)" และ "Bash(curl * http://localhost*)"
+  ตรวจแล้ว: JSON ถูกต้อง; รัน claude -p 1 ครั้ง stderr ว่าง (คำเตือนกฎหายแล้ว)
+- เพิ่ม /data/*.log ใน .gitignore (ไม่ commit log การดึงหุ้น data/fetch_full.log)
+- ตรวจก่อน commit: npm run lint ผ่าน, npm run build ผ่าน (705 หน้า รวมหน้าหุ้น 698 ตัว), สแกนหา secret ในไฟล์ที่จะ commit — ไม่พบ
+- Git commit งานค้างทั้งหมดบน main (ยังไม่ push)
+- LINE Bot ยังรันอยู่: http://localhost:3001 → ok, ผ่าน ngrok https://greeter-heroism-dastardly.ngrok-free.dev → ok
 
-UI Preview (ตรวจจาก HTML ที่เซิร์ฟเวอร์ส่งมา — ไม่ได้เห็นหน้าจอจริง):
-- Layout ทุกหน้า: Sidebar ซ้าย (โลโก้ Thai VI สีเขียว emerald, เมนู, ท้ายสุด "Supabase · 10 หลักทรัพย์ / Yahoo Finance · อัปเดต วันที่")
-  + Navbar บน + เนื้อหาขวา; มือถือ Sidebar ซ่อนเป็นเมนูเลื่อนพร้อมฉากหลังมืด
-- Dashboard (/): หัวข้อ "ภาพรวมตลาด · ข้อมูลจริงจาก Yahoo Finance 10 หลักทรัพย์"; การ์ด 4 ใบ (มูลค่าตลาดรวม, P/E/Yield/ROE ค่ามัธยฐาน)
-  1 คอลัมน์บนมือถือ → 2 → 4; กล่องเขียว "ผ่านเกณฑ์ VI พื้นฐาน"; การ์ดอันดับ 3 ใบ; ตารางมูลค่าตามกลุ่มอุตสาหกรรม (เลื่อนแนวนอนได้)
-- รายชื่อหุ้น (/stocks): ช่องค้นหา + dropdown กลุ่มอุตสาหกรรม (สร้างจากข้อมูลจริง เช่น Banking), ตัวกรอง VI, "พบ 10 จาก 10 หลักทรัพย์",
-  ตารางเรียงลำดับได้; Empty state "ไม่พบหุ้นที่ตรงกับเงื่อนไข" + ปุ่มล้างตัวกรอง
-- หุ้นรายตัว (/stocks/PTT): หัว "PTT · PTT Public Company Limited · Energy & Utilities" + ราคาใหญ่ด้านขวา; การ์ด 6 ใบ (2 → 3 → 6 คอลัมน์);
-  กราฟราคาพร้อมปุ่ม 1 ปี / 3 ปี / ทั้งหมด (aria-pressed); กราฟปันผล + ตาราง Yield (แถว "เฉลี่ย 4 ปี"); กราฟรายได้/รายจ่าย/กำไร 4 ปี;
-  ตารางงบการเงิน; ช่อง Note ส่วนตัว
-- Watchlist: ส่งมาเป็น Loading skeleton (animate-pulse) ก่อน แล้วโหลดรายการจาก Supabase ฝั่งเบราว์เซอร์
-- State: Loading = skeleton (loading.tsx), Error = กล่องขอบแดง + ปุ่ม "ลองอีกครั้ง" (error.tsx), Not found = /stocks/NOPE แสดงหน้า 404
-- เทียบโจทย์: Phase 6 ไม่ได้เปลี่ยน UI นอกจาก type Sector — dropdown กลุ่มและตารางกลุ่มยังแสดงถูกต้อง;
-  ที่ควรดูด้วยตาเอง: สี/ระยะห่าง, กราฟราคาตอนกดเปลี่ยนช่วง, เมนูบนมือถือ
+UI Preview:
+- ไม่มีการแก้ UI รอบนี้ — build ผ่านแสดงว่าหน้า / , /stocks , /stocks/[symbol] (698 ตัว), /watchlist สร้างได้ครบ
+- dev server (npm run dev) ยังไม่ได้เปิด ไม่ได้ดูหน้าเว็บด้วยตา
 
 Files Modified / Created:
-- C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\scripts\fetch_stocks.py
-  - main(): ย้าย `if args.limit: symbols = symbols[: args.limit]` จากก่อนสร้าง client ไปไว้หลังบล็อก --skip-fresh
-  - เหตุผล: ให้ --limit N --skip-fresh รันซ้ำแล้วได้ชุดถัดไปทีละ N ตัว
-- C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\task.md — Phase 6 เพิ่ม 2 ข้อ (ทดสอบผ่าน, แก้ลำดับ --limit)
-- C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\summary.txt — เขียนทับด้วยสรุปรอบนี้
-- (ข้อมูลใน Supabase: อัปเดตหุ้นทั้ง 10 ตัวเป็นวันที่ 2026-10-19)
+- แก้ไข C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\.claude\settings.json — permissions.allow บรรทัด 17: แทนกฎ curl ที่ไม่ทำงานด้วย 2 กฎข้างบน
+- แก้ไข C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\.gitignore — เพิ่ม /data/*.log
+- เขียนทับ C:\Users\LB\Desktop\my-apps-workspace\Thai _Stock_VI\summary.txt
+- ไฟล์ที่ถูก commit (งานจากรอบก่อนๆ): scripts/line_bot.js (ใหม่), scripts/check_fetch.py (ใหม่), data/set_symbols.csv (ใหม่),
+  scripts/fetch_stocks.py, src/types/stock.ts, src/components/stocks/StockScreener.tsx, package.json, .env.example, task.md
 
-Next Step:
-- ดาวน์โหลดรายชื่อบริษัทจดทะเบียนจาก set.or.th → Save As CSV ที่ data/set_symbols.csv แล้วสั่งดึงทั้งตลาด
-  (แนะนำทดสอบก่อนด้วย --limit 20 --skip-fresh 20 แล้วค่อยรันเต็ม)
+Next Step — ทดสอบคิวในแชท LINE จริง:
+1. ตรวจ Webhook URL ใน LINE Console = https://greeter-heroism-dastardly.ngrok-free.dev/webhook → Verify ต้องขึ้น Success
+2. ส่ง /status → ควรได้ "ว่าง — ไม่มีงานที่กำลังรัน"
+3. ส่ง 2 คำสั่งติดกัน เช่น "นับหุ้นในตาราง stocks ของ Supabase ด้วย scripts/check_fetch.py" แล้ว "สรุปไฟล์ task.md สั้นๆ"
+   → อันแรกได้ "รับคำสั่งแล้ว…", อันที่สองได้ "📥 รับคำสั่งเข้าคิวแล้ว — ลำดับที่ 1"
+4. ระหว่างรันส่ง /status → เห็นงานที่รันและคิว 1 งาน
+5. เมื่อเสร็จได้ 2 ข้อความต่องาน: "📋 รายละเอียดสำหรับส่งต่อ Gemini" แล้ว "📝 สรุป … ⏭ เริ่มงานถัดไป" / "⏹ คิวว่าง"
+6. ลอง /cancel ระหว่างงานยาว → สถานะ "ยกเลิกโดยผู้ใช้ (/cancel)" และงานถัดไปเริ่มเอง
+- push ไป GitHub ยังไม่ได้ทำ (ต้องสั่งเอง)
 
 Prompt for Gemini:
-โปรเจกต์ Thai Stock VI Dashboard: Phase 6 อยู่บน GitHub แล้ว (cda4150 + commit แก้ลำดับ --limit).
-ทดสอบ fetch_stocks.py กับ Yahoo + Supabase จริง: retry/delay/--skip-fresh แบ่งชุดทำงานถูกต้อง, ข้อมูลหุ้น 10 ตัวอัปเดตเป็น 2026-10-19.
-รอไฟล์ data/set_symbols.csv จากผู้ใช้เพื่อดึงทั้งตลาด SET.
+โปรเจกต์ Thai Stock VI: แก้กฎ curl ใน .claude/settings.json แล้ว (คำเตือนหาย), commit งานค้างทั้งหมดบน main (lint/build ผ่าน, ยังไม่ push);
+LINE Bot รันที่ 3001 ผ่าน ngrok พร้อมทดสอบ Task Queue ในแชทจริง.
 
-Last Updated: 2026-10-19 11:02:11
+Last Updated: 2026-10-19 14:42:58

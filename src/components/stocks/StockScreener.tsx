@@ -83,7 +83,8 @@ export function StockScreener({ stocks }: { stocks: Stock[] }) {
           value={sector}
           onChange={(e) => setSector(e.target.value as Sector | "all")}
           aria-label="กลุ่มอุตสาหกรรม"
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          // ชื่อหมวดของ SET ยาวได้ถึง ~60 ตัวอักษร — จำกัดความกว้างไม่ให้เบียดช่องค้นหาบนจอกว้าง
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm sm:max-w-xs dark:border-slate-700 dark:bg-slate-900"
         >
           <option value="all">ทุกกลุ่มอุตสาหกรรม</option>
           {sectors.map((s) => (

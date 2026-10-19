@@ -14,7 +14,8 @@
       "Bash(.venv/Scripts/python *)",
       "PowerShell(.venv\\Scripts\\python *)",
       "Bash(npx next *)",
-      "Bash(curl * http://localhost:*)"
+      "Bash(curl http://localhost*)",
+      "Bash(curl * http://localhost*)"
     ],
     "deny": [
       "Bash(git push --force*)",

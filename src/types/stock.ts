@@ -1,19 +1,19 @@
 /**
- * กลุ่มอุตสาหกรรม: ชื่อที่ใช้กับ STOCKS ใน fetch_stocks.py ช่วย autocomplete
- * แต่รับข้อความอื่นได้ เพราะการดึงทั้งตลาดใช้ชื่อกลุ่มจากไฟล์รายชื่อของ SET
+ * หมวดธุรกิจตามที่ SET จัด (คอลัมน์ "หมวดธุรกิจ" ในไฟล์รายชื่อบริษัทจดทะเบียน) — ชื่อที่ใช้กับ STOCKS
+ * ใน fetch_stocks.py ช่วย autocomplete แต่รับหมวดอื่นได้ เพราะทั้งตลาดมีหลายสิบหมวด
  * (`string & {}` กันไม่ให้ TypeScript ยุบ union ทั้งหมดเหลือแค่ string)
  */
 export type Sector =
   | (string & {})
-  | "Energy & Utilities"
-  | "Health Care Services"
-  | "Information & Communication Technology"
-  | "Commerce"
-  | "Construction Materials"
-  | "Banking"
-  | "Transportation & Logistics"
-  | "Property Development"
-  | "Electronic Components"
+  | "พลังงานและสาธารณูปโภค"
+  | "การแพทย์"
+  | "เทคโนโลยีสารสนเทศและการสื่อสาร"
+  | "พาณิชย์"
+  | "วัสดุก่อสร้าง"
+  | "ธนาคาร"
+  | "ขนส่งและโลจิสติกส์"
+  | "พัฒนาอสังหาริมทรัพย์"
+  | "ชิ้นส่วนอิเล็กทรอนิกส์"
   | "Other";
 
 /** ข้อมูลรายปี (หน่วยเงิน: ล้านบาท) */

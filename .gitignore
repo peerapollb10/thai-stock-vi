@@ -44,3 +44,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# log การดึงหุ้นทั้งตลาด (fetch_stocks.py)
+/data/*.log
