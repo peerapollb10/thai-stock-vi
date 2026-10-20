@@ -45,7 +45,7 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
     <div className="space-y-4">
       <Link
         href="/stocks"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 max-md:min-h-11 dark:hover:text-slate-100"
       >
         <ArrowLeft className="size-4" />
         กลับไปรายชื่อหุ้น
@@ -53,7 +53,7 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
 
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-2xl font-semibold">{stock.symbol}</h1>
             <WatchlistButton symbol={stock.symbol} variant="labeled" />
           </div>
@@ -61,7 +61,8 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
             {stock.name} · {stock.sector}
           </p>
         </div>
-        <div className="text-right">
+        {/* มือถือ: ราคาตกลงบรรทัดใหม่ — ชิดซ้ายให้อ่านต่อจากชื่อบริษัท */}
+        <div className="sm:text-right">
           <div className="text-3xl font-semibold">{formatNumber(stock.price)}</div>
           <p className="text-xs text-slate-500">บาท · Yahoo Finance อัปเดต {latestUpdate([stock])}</p>
         </div>
@@ -118,21 +119,13 @@ export default async function StockDetailPage({ params }: PageProps<"/stocks/[sy
                     render: (row) => <span className="font-semibold">{formatPercent(row.yieldOnCurrentPrice)}</span>,
                   },
                 ]}
-                footer={
-                  <tr>
-                    <td className="px-2 py-2">เฉลี่ย {years} ปี</td>
-                    <td className="px-2 py-2 text-right font-mono tabular-nums">
-                      {formatNumber(average(yields.map((y) => y.dividendPerShare)))}
-                    </td>
-                    <td />
-                    <td className="px-2 py-2 text-right font-mono tabular-nums">
-                      {formatPercent(average(yields.map((y) => y.yieldAtClose)))}
-                    </td>
-                    <td className="px-2 py-2 text-right font-mono tabular-nums">
-                      {formatPercent(average(yields.map((y) => y.yieldOnCurrentPrice)))}
-                    </td>
-                  </tr>
-                }
+                footer={[
+                  `เฉลี่ย ${years} ปี`,
+                  formatNumber(average(yields.map((y) => y.dividendPerShare))),
+                  null,
+                  formatPercent(average(yields.map((y) => y.yieldAtClose))),
+                  formatPercent(average(yields.map((y) => y.yieldOnCurrentPrice))),
+                ]}
               />
             </Section>
           </div>

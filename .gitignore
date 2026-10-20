@@ -47,3 +47,6 @@ next-env.d.ts
 
 # log การดึงหุ้นทั้งตลาด (fetch_stocks.py)
 /data/*.log
+
+# ผล Self-Test (scripts/self_test.js): report.json + ภาพหน้าจอ
+/data/self-test/

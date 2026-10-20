@@ -44,7 +44,10 @@ export function WatchlistView({ stocks: allStocks }: { stocks: Stock[] }) {
         <Notice icon={Star}>
           <p>ยังไม่มีหุ้นใน Watchlist</p>
           <p className="text-sm">กดรูปดาวในตารางรายชื่อหุ้นหรือหน้ารายละเอียดหุ้นเพื่อเพิ่ม</p>
-          <Link href="/stocks" className="text-sm font-medium text-emerald-600 hover:underline">
+          <Link
+            href="/stocks"
+            className="inline-flex items-center px-4 text-sm font-medium text-emerald-600 hover:underline max-md:min-h-11"
+          >
             ไปที่รายชื่อหุ้น
           </Link>
         </Notice>

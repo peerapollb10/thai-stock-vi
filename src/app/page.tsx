@@ -82,7 +82,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/stocks?preset=vi"
-            className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+            className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline max-md:min-h-11 dark:text-emerald-400"
           >
             ปรับเกณฑ์เอง
             <ArrowRight className="size-4" />
@@ -94,7 +94,7 @@ export default async function DashboardPage() {
               <Link
                 key={stock.symbol}
                 href={`/stocks/${stock.symbol}`}
-                className="rounded-lg bg-white px-3 py-1.5 text-sm shadow-sm hover:shadow dark:bg-slate-900"
+                className="inline-flex items-center rounded-lg bg-white px-3 py-1.5 text-sm shadow-sm hover:shadow max-md:min-h-11 dark:bg-slate-900"
               >
                 <span className="font-semibold">{stock.symbol}</span>
                 <span className="ml-2 font-mono text-xs text-slate-500">
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
         )}
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <RankingCard
           title="ปันผลสูงสุด"
           icon={PiggyBank}
@@ -136,21 +136,22 @@ export default async function DashboardPage() {
           <table className="w-full text-sm">
             <thead className="text-left text-slate-500">
               <tr>
-                <th className="py-1.5 font-medium">กลุ่ม</th>
-                <th className="py-1.5 text-right font-medium">จำนวน</th>
-                <th className="py-1.5 text-right font-medium">มูลค่าตลาด</th>
-                <th className="py-1.5 text-right font-medium">สัดส่วน</th>
+                <th className="py-1.5 pr-3 font-medium">กลุ่ม</th>
+                {/* มือถือซ่อนคอลัมน์จำนวน — ชื่อหมวดของ SET ยาว ต้องการพื้นที่มากกว่า */}
+                <th className="hidden py-1.5 pl-2 text-right font-medium sm:table-cell">จำนวน</th>
+                <th className="py-1.5 pl-2 text-right font-medium">มูลค่าตลาด</th>
+                <th className="py-1.5 pl-2 text-right font-medium">สัดส่วน</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {sectorBreakdown(stocks).map((row) => (
                 <tr key={row.sector}>
-                  <td className="py-1.5">{row.sector}</td>
-                  <td className="py-1.5 text-right font-mono tabular-nums">{row.count}</td>
-                  <td className="whitespace-nowrap py-1.5 text-right font-mono tabular-nums">
+                  <td className="py-1.5 pr-3">{row.sector}</td>
+                  <td className="hidden py-1.5 pl-2 text-right font-mono tabular-nums sm:table-cell">{row.count}</td>
+                  <td className="whitespace-nowrap py-1.5 pl-2 text-right font-mono tabular-nums">
                     {formatMarketCap(row.marketCap)}
                   </td>
-                  <td className="py-1.5 text-right font-mono tabular-nums">{formatPercent(row.share, 1)}</td>
+                  <td className="py-1.5 pl-2 text-right font-mono tabular-nums">{formatPercent(row.share, 1)}</td>
                 </tr>
               ))}
             </tbody>

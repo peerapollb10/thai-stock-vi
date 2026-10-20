@@ -38,7 +38,7 @@ export function Sidebar({ open, onClose, footer }: SidebarProps) {
         )}
       >
         <div className="flex h-16 items-center justify-between px-5">
-          <Link href="/" className="flex items-center gap-2" onClick={onClose}>
+          <Link href="/" className="flex min-h-11 items-center gap-2" onClick={onClose}>
             <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
               <TrendingUp className="size-5" />
             </span>
@@ -47,7 +47,7 @@ export function Sidebar({ open, onClose, footer }: SidebarProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-slate-800"
+            className="-mr-2 inline-flex size-11 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-slate-800"
             aria-label="ปิดเมนู"
           >
             <X className="size-5" />
@@ -63,7 +63,7 @@ export function Sidebar({ open, onClose, footer }: SidebarProps) {
                 href={href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors max-md:min-h-11",
                   active
                     ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",

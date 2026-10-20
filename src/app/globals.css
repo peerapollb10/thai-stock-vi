@@ -44,3 +44,22 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* iOS Safari ซูมหน้าจอเองเมื่อแตะช่องกรอกที่ตัวอักษรเล็กกว่า 16px — บนจอแคบให้ช่องกรอกเป็น 16px
+   (ไม่อยู่ใน @layer จึงชนะคลาส text-sm ของ Tailwind) */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* มือถือ/แท็บเล็ตแนวตั้ง: ช่องกรอกสูงอย่างน้อย 44px ให้แตะด้วยนิ้วได้ง่าย (ตรวจโดย scripts/self_test.js) */
+@media (max-width: 767px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  select,
+  textarea {
+    min-height: 44px;
+  }
+}

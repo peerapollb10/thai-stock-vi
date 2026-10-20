@@ -21,14 +21,14 @@ export function RankingCard({ title, icon: Icon, stocks, formatValue }: RankingC
           <li key={stock.symbol}>
             <Link
               href={`/stocks/${stock.symbol}`}
-              className="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 max-md:min-h-11 dark:hover:bg-slate-800"
             >
               <span className="w-4 text-xs text-slate-400">{index + 1}</span>
-              <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 flex-1 items-baseline gap-2">
                 <span className="font-medium">{stock.symbol}</span>
-                <span className="ml-2 truncate text-xs text-slate-500">{stock.name}</span>
+                <span className="truncate text-xs text-slate-500">{stock.name}</span>
               </span>
-              <span className="font-mono tabular-nums">{formatValue(stock)}</span>
+              <span className="shrink-0 font-mono tabular-nums">{formatValue(stock)}</span>
             </Link>
           </li>
         ))}

@@ -12,8 +12,8 @@ for (const file of [".env.local", ".env"]) {
 
 const { SEND_LINE_NOTIFY, LINE_CHANNEL_ACCESS_TOKEN, LINE_USER_ID } = process.env;
 
-// รันจาก LINE bot (line_bot.js ตั้ง LINE_BOT_JOB=1) — bot ส่งผลลัพธ์ 2 ข้อความเองอยู่แล้ว ไม่ต้องส่งซ้ำ
-if (process.env.LINE_BOT_JOB === "1") {
+// รันจาก bot (line_bot.js ตั้ง LINE_BOT_JOB=1, telegram_bot.js ตั้ง BOT_JOB=1) — bot ส่งผลลัพธ์เองอยู่แล้ว ไม่ต้องส่งซ้ำ
+if (process.env.LINE_BOT_JOB === "1" || process.env.BOT_JOB === "1") {
   console.log("ข้ามการส่ง LINE (รันจาก LINE bot — bot ส่งผลลัพธ์เอง)");
   process.exit(0);
 }

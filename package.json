@@ -9,8 +9,11 @@
     "lint": "eslint",
     "notify": "node scripts/notify.js",
     "send-line": "node scripts/send-line.js",
+    "self-test": "node scripts/self_test.js",
     "finish": "node scripts/finish.js",
-    "bot": "node scripts/line_bot.js",
+    "send-telegram": "node scripts/send-telegram.js",
+    "bot": "node scripts/telegram_bot.js",
+    "bot:line": "node scripts/line_bot.js",
     "check-supabase":"node scripts/check-supabase.js",
     "fetch-stocks": ".venv\\Scripts\\python scripts/fetch_stocks.py"
   },

@@ -53,7 +53,7 @@ export function PriceChart({ prices }: { prices: PricePoint[] }) {
               onClick={() => setYears(range.years)}
               aria-pressed={years === range.years}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-medium",
+                "rounded-md px-2.5 py-1 text-xs font-medium max-md:min-h-11 max-md:min-w-11",
                 years === range.years
                   ? "bg-emerald-600 text-white"
                   : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800",

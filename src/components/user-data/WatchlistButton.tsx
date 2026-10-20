@@ -35,8 +35,8 @@ export function WatchlistButton({ symbol, variant = "icon" }: WatchlistButtonPro
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40",
         variant === "icon"
-          ? "size-8 hover:bg-slate-100 dark:hover:bg-slate-800"
-          : "border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
+          ? "size-11 hover:bg-slate-100 md:size-8 dark:hover:bg-slate-800"
+          : "border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 max-md:min-h-11 dark:border-slate-700 dark:hover:bg-slate-800",
         watched ? "text-amber-500" : "text-slate-400 hover:text-amber-500",
       )}
     >

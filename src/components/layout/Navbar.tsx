@@ -22,7 +22,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
       <button
         type="button"
         onClick={onMenuClick}
-        className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-slate-800"
+        className="-ml-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 md:hidden dark:hover:bg-slate-800"
         aria-label="เปิดเมนู"
       >
         <Menu className="size-5" />

@@ -65,6 +65,34 @@ export function passesCriterion(stock: Stock, criterion: Criterion, thresholds: 
   return criterion.op === "<" ? value >= 0 && value < limit : value > limit;
 }
 
+// หมวด "กองทุนรวมอสังหาริมทรัพย์และกองทรัสต์…" ของ SET และชื่อกองทุน (กองทุนโครงสร้างพื้นฐานอยู่ในหมวดธุรกิจปกติ เช่น DIF, EGATIF)
+const FUND_NAME = /กองทุน|ทรัสต์|\bREIT\b|\bfund\b|investment trust|infrastructure/i;
+// ชื่อย่อ REIT / กองทุนโครงสร้างพื้นฐาน เช่น CPNREIT, DIF, TFFIF — ไม่ใช้ "PF" เพราะ CPF, UPF เป็นบริษัทปกติ
+// (กองทุนอสังหาฯ อย่าง HPF, TTLPF จับได้จากหมวดธุรกิจแล้ว)
+const FUND_SYMBOL = /^[A-Z0-9]+(REIT|IF)$/;
+// ไม่ใช่หุ้นสามัญ: ใบสำคัญแสดงสิทธิ (-W, -W1), หุ้นบุริมสิทธิ (-P), หุ้นต่างด้าว (-F), NVDR (-R)
+// ไม่ตรวจ DR จากเลขท้ายชื่อย่อ เพราะ B52, S11 เป็นบริษัทปกติ — ใช้ชื่อหลักทรัพย์แทน
+const NON_COMMON_SYMBOL = /-(W\d*|P|F|R)$/;
+const NON_COMMON_NAME = /depositary receipt|warrant|preferred/i;
+
+export function isFund(stock: Stock) {
+  return FUND_NAME.test(stock.sector) || FUND_NAME.test(stock.name) || FUND_SYMBOL.test(stock.symbol);
+}
+
+/**
+ * หลักทรัพย์ที่คัดกรองตามเกณฑ์ VI ได้: หุ้นสามัญของบริษัทในหมวดธุรกิจปกติ ที่มีราคาและงบการเงิน
+ * ตัดกองทุนรวมอสังหาฯ / REIT / กองทุนโครงสร้างพื้นฐาน, warrant / DR / หุ้นบุริมสิทธิ และหุ้นที่ไม่มีงบออก
+ */
+export function isViEligible(stock: Stock) {
+  return (
+    !isFund(stock) &&
+    !NON_COMMON_SYMBOL.test(stock.symbol) &&
+    !NON_COMMON_NAME.test(stock.name) &&
+    stock.history.length > 0 &&
+    Number.isFinite(stock.price)
+  );
+}
+
 export function screenStocks(
   stocks: Stock[],
   enabled: CriterionId[],

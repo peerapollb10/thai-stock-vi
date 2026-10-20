@@ -6,6 +6,7 @@ import { Search, SearchX } from "lucide-react";
 import {
   BASIC_VI_PRESET,
   defaultThresholds,
+  isViEligible,
   screenStocks,
   type CriterionId,
   type ThresholdField,
@@ -15,8 +16,14 @@ import type { Sector, Stock } from "@/types/stock";
 import { ScreeningFilters } from "./ScreeningFilters";
 import { StockTable, sortStocks, type SortState } from "./StockTable";
 
-export function StockScreener({ stocks }: { stocks: Stock[] }) {
-  const sectors = [...new Set(stocks.map((stock) => stock.sector))].sort();
+/**
+ * `stocks` ควรผ่าน isViEligible มาแล้วฝั่ง server (ลดขนาดข้อมูลที่ส่งไปหน้าเว็บ) — กรองซ้ำที่นี่กันพลาด
+ * ให้กองทุน / REIT / หลักทรัพย์ที่ไม่ใช่หุ้นสามัญหรือไม่มีงบ ไม่โผล่ทั้งในตารางและตัวเลือกหมวด
+ */
+export function StockScreener({ stocks, excludedCount = 0 }: { stocks: Stock[]; excludedCount?: number }) {
+  const universe = stocks.filter(isViEligible);
+  const hiddenCount = excludedCount + stocks.length - universe.length;
+  const sectors = [...new Set(universe.map((stock) => stock.sector))].sort();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
@@ -54,7 +61,7 @@ export function StockScreener({ stocks }: { stocks: Stock[] }) {
 
   const normalizedQuery = query.trim().toLowerCase();
   const results = sortStocks(
-    screenStocks(stocks, enabled, thresholds).filter(
+    screenStocks(universe, enabled, thresholds).filter(
       (stock) =>
         (sector === "all" || stock.sector === sector) &&
         (!normalizedQuery ||
@@ -109,9 +116,19 @@ export function StockScreener({ stocks }: { stocks: Stock[] }) {
         onClear={() => setEnabled([])}
       />
 
-      <p className="text-sm text-slate-500">
-        พบ {results.length} จาก {stocks.length} หลักทรัพย์
-      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-500">
+          พบ {results.length} จาก {universe.length} หุ้นสามัญ
+        </p>
+        {hiddenCount > 0 && (
+          <p
+            className="text-xs text-slate-400"
+            title="กองทุนรวมอสังหาริมทรัพย์, REIT, กองทุนโครงสร้างพื้นฐาน, warrant / DR และหุ้นที่ไม่มีงบการเงิน วิเคราะห์ตามเกณฑ์ VI ไม่ได้"
+          >
+            ไม่รวมกองทุน / REIT / กองทุนโครงสร้างพื้นฐาน และหลักทรัพย์ที่ไม่มีงบ {hiddenCount} ตัว
+          </p>
+        )}
+      </div>
 
       {results.length > 0 ? (
         <StockTable stocks={results} sort={sort} onSortChange={setSort} filteredFields={filteredFields} />
@@ -122,7 +139,7 @@ export function StockScreener({ stocks }: { stocks: Stock[] }) {
           <button
             type="button"
             onClick={resetAll}
-            className="text-sm font-medium text-emerald-600 hover:underline"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-emerald-600 hover:underline max-md:min-h-11"
           >
             ล้างตัวกรองทั้งหมด
           </button>

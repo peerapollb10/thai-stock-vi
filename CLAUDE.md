@@ -1,47 +1,43 @@
-# Project Instructions for Thai Stock VI
+# Project Instructions & Workflow Standards for Thai Stock VI
 
-- ก่อนเริ่มงานและทุกครั้งที่ทำงานเสร็จในแต่ละ Task:
-  - ให้ปฏิบัติตามกฎระเบียบและมาตรฐานการทำงานตามที่กำหนดไว้ในไฟล์กลางระดับ Workspace ที่ตำแหน่ง **`../CLAUDE-RULES.md`**
-  - **โปรเจกต์นี้ไม่ใช้ `summary.txt` / `summary.md`** (มีผลเหนือข้อกำหนดเรื่องไฟล์สรุปใน `../CLAUDE-RULES.md`) — ห้ามสร้างไฟล์สรุปขึ้นมาใหม่
-  - บันทึกสถานะงานหลักไว้ใน **`task.md`** ไฟล์เดียว: เพิ่ม/ติ๊ก `- [x]` รายการงานใน Phase ที่เกี่ยวข้อง พร้อมระบุไฟล์ที่แก้และเหตุผลสั้นๆ
-  - รายละเอียดทางเทคนิค (ไฟล์ที่แก้, ฟังก์ชัน/บรรทัด, ผลการตรวจ) ให้รายงานในคำตอบแทน
+## 1. มาตรฐานการบันทึกผลและติดตามงาน (Task Tracking)
+- **โปรเจกต์นี้ไม่ใช้ `summary.txt` / `summary.md`** — ห้ามสร้างไฟล์สรุปขึ้นมาใหม่
+- บันทึกสถานะงานหลักไว้ใน **`task.md`** เพียงไฟล์เดียว: เพิ่ม/ติ๊ก `- [x]` รายการงานใน Phase ที่เกี่ยวข้อง พร้อมระบุไฟล์ที่แก้และเหตุผลสั้นๆ
+- รายละเอียดทางเทคนิค (ไฟล์ที่แก้, ฟังก์ชัน/บรรทัด, ผลการตรวจ) ให้รายงานในคำตอบแชทแทน
 
-- **Finish Protocol** (ทุกครั้งที่ทำ Task, Phase หรือแก้ไขไฟล์ใดๆ เสร็จ):
-  1. อัปเดต `task.md`
-  2. `npm run finish -- "สรุปสั้นหนึ่งบรรทัด"` — รันทุกขั้นต่อไปนี้ในคำสั่งเดียว (ทุกขั้นทำงานเสมอแม้ขั้นก่อนหน้าล้มเหลว):
-     - `npm run send-line` — ส่งข้อความสั้นเข้า LINE OA (ค่าตั้งอยู่ใน `.env.local`; ข้ามเมื่อรันจาก LINE bot)
-     - `npm run notify` — เสียง Terminal Bell + ป๊อปอัป Toast บน Windows (แสดงผลการส่ง LINE ในป๊อปอัปด้วย)
+## 2. Finish Protocol (กระบวนการจบงานอัตโนมัติทุกครั้ง)
+เมื่อทำ Task, Phase หรือแก้ไขไฟล์ใดๆ เสร็จเรียบร้อยแล้ว ให้ทำตามลำดับต่อไปนี้โดยอัตโนมัติทุกครั้ง:
+1. อัปเดตสถานะงานใน `task.md` ให้เป็นปัจจุบัน
+2. รันคำสั่ง `npm run finish -- "สรุปสั้นหนึ่งบรรทัด"` — ซึ่งจะรันทุกขั้นตอนต่อไปนี้ตามลำดับอัตโนมัติ:
+   - **`npm run self-test`** — ตรวจเช็ก Lint + Build + จำลองเปิดหน้าเว็บด้วย Headless Edge ที่ 375/768/1280px ตรวจสอบ 5 หมวด:
+     * `[layout]` ล้นจอ/ตารางเลื่อนแนวนอน
+     * `[data]` คำต้องห้าม (Mock/Dummy/ข้อมูลจำลอง/undefined/null/NaN), จำนวนหุ้นตรงกับ Supabase (633 ตัว), Empty State ของ /stocks
+     * `[touch]` จอ < 768px ปุ่ม/ลิงก์ ≥ 44×44px (รวมเมนู Sidebar)
+     * `[font]` จอ < 768px ตัวอักษร ≥ 12px
+     * `[network]` HTTP 4xx/5xx, console.error, JS exception
+     *(ผล + ภาพหน้าจอใน `data/self-test/`); หากพบข้อผิดพลาด ให้แก้ไขแล้วรัน finish ใหม่ — ห้ามรายงานว่างานเสร็จทั้งที่ Self-test ✗*
+     *ใช้ `--skip-build` เพื่อใช้ build เดิม หรือ `--skip-test` เฉพาะงานที่ไม่ได้แตะโค้ด*
+   - **`npm run send-telegram`** — ส่งข้อความเดียว "📋 สำหรับ Gemini" เข้า Telegram (ไม่แนบผล Self-Test — ดูผลในป๊อปอัป/`data/self-test/`; ข้ามอัตโนมัติเมื่อรันจาก Telegram bot — bot ส่งรายงานจบงานเป็นข้อความเดียวเอง)
+     (LINE เดิม `npm run send-line` ส่งด้วยเฉพาะเมื่อตั้ง `SEND_LINE_NOTIFY=true`)
+   - **`npm run notify`** — เสียง Terminal Bell + ป๊อปอัป Toast บน Windows (แสดงผลการส่ง Telegram ในป๊อปอัปด้วย)
 
-## การรันแบบ Autonomous Mode (งานยาวโดยไม่ต้องรออนุมัติทีละคำสั่ง)
-
-- **สิทธิ์ประจำโปรเจกต์อยู่ใน `.claude/settings.json`** (commit เข้า repo):
+## 3. การรันแบบ Autonomous Mode (งานยาวโดยไม่ต้องรออนุมัติทีละคำสั่ง)
+- **สิทธิ์ประจำโปรเจกต์อยู่ใน `.claude/settings.json`**:
   - `defaultMode: "acceptEdits"` — แก้ไฟล์ในโปรเจกต์ได้โดยไม่ต้องถามทุกครั้ง
   - `allow` — คำสั่งที่ใช้ประจำ: `npm run *`, `git *`, `node scripts/*`, `.venv/Scripts/python *`, `npx next *`, `curl … http://localhost:*`
   - `deny` (มีผลเหนือ allow เสมอ) — `git push --force` / `-f`, `git reset --hard`, `git clean -f`, `rm -rf`, และอ่าน `.env.local` / `.env` (Secret key ใช้ผ่านสคริปต์เท่านั้น)
-  - เพิ่มสิทธิ์เฉพาะตัว (ไม่ commit) ใน `.claude/settings.local.json`
-- **เลือกโหมดตอนเริ่ม session**: กด `Shift+Tab` สลับโหมด หรือเริ่มด้วย `claude --permission-mode acceptEdits`
-  - งานยาวหลายขั้นตอน ใช้ **auto mode** (มีตัวคัดกรองความเสี่ยงอัตโนมัติ) หรือ `acceptEdits` + allowlist ข้างบน
-  - **ห้ามใช้** `--dangerously-skip-permissions` (bypassPermissions) บนเครื่องหลัก — ใช้ได้เฉพาะใน container/VM ที่แยกจากไฟล์จริงและไม่มี Secret
 - **แนวทางให้รันต่อเนื่องได้ราบรื่น**:
-  - คำสั่งที่ไม่จบเอง (`npm run dev`, `npm run start`) รันแบบ background เสมอ แล้วตรวจด้วย HTTP request แทนการรอ
-  - คำสั่งที่อาจค้าง (`fetch-stocks` ทั้งตลาด, PowerShell) ใส่ timeout และรันใน background ถ้าใช้เวลาเกิน 2 นาที
-  - ห้ามใช้คำสั่งแบบ interactive (`git rebase -i`, คำสั่งที่ถามยืนยัน) — ใส่ flag ไม่ถามแทน เช่น `-Confirm:$false`
-  - ก่อนลบ/เขียนทับ/push ให้ตรวจเป้าหมายก่อน; งานที่ย้อนกลับยาก (push, ลบข้อมูลใน Supabase) ยังต้องได้รับคำสั่งจากผู้ใช้ชัดเจน
-  - จบงานทุกครั้งรัน Finish Protocol (`npm run finish`) เพื่อแจ้งผลทางป๊อปอัปและ LINE เมื่อผู้ใช้ไม่ได้เฝ้าหน้าจอ
+  - คำสั่งที่ไม่จบเอง (`npm run dev`, `npm run start`, `npm run bot`) ให้รันแบบ background เสมอ แล้วตรวจด้วย HTTP request แทนการรอ
+  - คำสั่งที่อาจค้าง (`fetch-stocks` ทั้งตลาด, PowerShell) ให้ใส่ timeout และรันใน background หากใช้เวลาเกิน 2 นาที
+  - ห้ามใช้คำสั่งแบบ interactive (`git rebase -i`) — ใส่ flag ไม่ถามแทน เช่น `-Confirm:$false`
+  - ก่อนลบ/เขียนทับ/push ให้ตรวจเป้าหมายก่อน; งานที่ย้อนกลับยาก (push, ลบข้อมูลใน Supabase) ยังต้องได้รับคำสั่งอนุมัติชัดเจนผ่านปุ่มอนุมัติของ Telegram bot
 
-## นโยบายการดึงข้อมูลหุ้น SET (`scripts/fetch_stocks.py`)
-
+## 4. นโยบายการดึงข้อมูลหุ้น SET (`scripts/fetch_stocks.py`)
 - **ขอบเขตปกติ**: `npm run fetch-stocks` ดึงเฉพาะหุ้นในรายชื่อ `STOCKS` (10 ตัว) — ใช้อัปเดตประจำวัน
-- **เพิ่มบางตัว**: `npm run fetch-stocks -- --symbols SCB BBL GULF` (ชื่อย่อไม่ต้องมี `.BK`)
-- **ทั้งตลาด — ทำเมื่อผู้ใช้สั่งเท่านั้น** (ใช้เวลาราว 30–40 นาทีสำหรับ ~650 ตัว และเพิ่มข้อมูลใน Supabase มาก):
-  1. ผู้ใช้ดาวน์โหลดรายชื่อบริษัทจดทะเบียนจากเว็บไซต์ SET ด้วยเบราว์เซอร์ แล้ว Save As CSV ไว้ที่ `data/set_symbols.csv`
-     (ต้องมีคอลัมน์ `Symbol`; ถ้ามี `Market` / `Sector` จะใช้กรองตลาดและเป็นกลุ่มอุตสาหกรรม) — ห้ามเขียนสคริปต์ดึงจากเว็บ SET อัตโนมัติ เพราะมีระบบกันบอท
+- **เพิ่มบางตัว**: `npm run fetch-stocks -- --symbols SCB BBL GULF`
+- **ทั้งตลาด (ทำเมื่อผู้ใช้สั่งเท่านั้น)**:
+  1. ผู้ใช้ดาวน์โหลด CSV ไว้ที่ `data/set_symbols.csv` (ต้องมีคอลัมน์ `Symbol`) — ห้ามเขียนสคริปต์ดึงอัตโนมัติเพราะมีระบบกันบอท
   2. ทดสอบก่อน: `npm run fetch-stocks -- --symbols-file data/set_symbols.csv --market SET --limit 5 --dry-run`
-  3. รันจริงใน background: `npm run fetch-stocks -- --symbols-file data/set_symbols.csv --market SET --period 2y --skip-fresh 20`
-  4. ถ้าค้าง/ถูกจำกัดคำขอ ให้รันคำสั่งเดิมซ้ำ — `--skip-fresh 20` ข้ามตัวที่อัปเดตแล้วภายใน 20 ชั่วโมง
-- **ข้อกำหนดการใช้แหล่งข้อมูล**:
-  - ใช้ `--delay` อย่างน้อย 1 วินาที (ค่าเริ่มต้น) — สคริปต์รอแล้วลองใหม่เองเมื่อ Yahoo จำกัดคำขอ (30 / 60 / 120 วินาที)
-  - ทั้งตลาดใช้ `--period 2y` (ราคาย้อนหลัง 2 ปี) เพื่อคุมขนาดตาราง `stock_prices`; งบการเงินยังได้ครบตามที่ Yahoo มี
-  - ไม่รันทั้งตลาดซ้ำบ่อยกว่าวันละครั้ง และไม่รันพร้อมกันหลาย process
-  - หุ้นที่ดึงไม่สำเร็จจะถูกสรุปท้ายรอบ (`ล้มเหลว N ตัว: …`) — รายงานให้ผู้ใช้ทราบ ไม่ต้องแก้ทีละตัวเอง
-- **หลังดึงทั้งตลาด**: หน้าเว็บเห็นข้อมูลใหม่ภายใน 1 ชม. (cache) และรายงานจำนวนหุ้นที่ Sidebar อัตโนมัติ
+  3. รันจริง background: `npm run fetch-stocks -- --symbols-file data/set_symbols.csv --market SET --period 2y --skip-fresh 20`
+  4. ใช้ `--delay` อย่างน้อย 1 วินาที ไม่รันซ้ำบ่อยกว่าวันละครั้ง
+  5. หลังดึงทั้งตลาด หน้าเว็บเห็นข้อมูลใหม่ภายใน 1 ชม. (cache) และรายงานจำนวนหุ้นที่ Sidebar อัตโนมัติ

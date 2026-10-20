@@ -30,7 +30,7 @@ export function ScreeningFilters({
           <button
             type="button"
             onClick={onApplyPreset}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 max-md:min-h-11"
           >
             <Sparkles className="size-3.5" />
             เกณฑ์ VI พื้นฐาน
@@ -39,7 +39,7 @@ export function ScreeningFilters({
             type="button"
             onClick={onClear}
             disabled={enabled.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 max-md:min-h-11 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <RotateCcw className="size-3.5" />
             ล้างเกณฑ์
@@ -54,13 +54,14 @@ export function ScreeningFilters({
             <div
               key={criterion.id}
               className={cn(
-                "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                // label ยืดเต็มความสูงแถว (min-h-12) — แตะตรงไหนของแถวก็ติ๊กเกณฑ์ได้ ไม่ต้องเล็งกล่องเล็ก 16px
+                "flex min-h-12 items-stretch gap-2 rounded-lg border px-3 text-sm transition-colors",
                 checked
                   ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
                   : "border-slate-200 dark:border-slate-700",
               )}
             >
-              <label className="flex flex-1 cursor-pointer items-center gap-2">
+              <label className="flex flex-1 cursor-pointer items-center gap-2 py-2">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -71,7 +72,7 @@ export function ScreeningFilters({
               </label>
 
               {criterion.kind === "threshold" && (
-                <span className="flex items-center gap-1 text-slate-500">
+                <span className="flex items-center gap-1 py-1 text-slate-500">
                   <span className="font-mono">{criterion.op}</span>
                   <input
                     type="number"

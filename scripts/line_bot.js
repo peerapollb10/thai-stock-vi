@@ -8,9 +8,15 @@
 //     (ไม่ใช้ --dangerously-skip-permissions ตามกฎ Autonomous Mode ใน CLAUDE.md) — คำสั่งนอก allowlist จะถูกปฏิเสธเอง
 //   - ข้อความส่งเข้า claude ทาง stdin ไม่ผ่าน command line จึงไม่เกิด shell injection
 //   - รันทีละงาน (คำสั่งที่เข้ามาระหว่างรันจะต่อคิวไว้ใน taskQueue) และหยุดงานที่เกิน BOT_TIMEOUT_MIN นาที
-// รับคำสั่งใหม่: ตอบรับสั้นๆ 1 ข้อความทันที ("⏳ กำลังรันงาน…" หรือ "📥 รับคำสั่งเข้าคิวแล้ว — ลำดับที่ N")
+// รับคำสั่งใหม่ และ /status: ตอบ 1 ข้อความจาก statusText() — "กำลังรันงาน..." + "[ชื่องานสั้น] [x min]"
+//   ต่อด้วย "งานที่รอคิว..." + "1.[ชื่องาน] [x min]" … เฉพาะเมื่อมีคิว (เวลาคร่าวๆ จาก estimate())
 // งานเสร็จ: ส่งผลลัพธ์ 2 ข้อความเท่านั้น (1) "📋 สำหรับ Gemini" เนื้อหาทางเทคนิค (2) "📝 สำหรับคุณเบียร์" สรุป Bullet อยู่ล่างสุด
 //   (ไม่มีบรรทัดสถานะ/เวลา/คิวดิบ — แสดงสาเหตุเฉพาะเมื่องานล้มเหลว; send-line.js ข้ามการส่งเมื่อรันจาก bot)
+// /restart หรือ /reboot: ตอบ "กำลังรีสตาร์ทบอท..." แล้วเปิด bot ตัวใหม่แทนตัวเดิม — ตัวใหม่ push "✅ รีสตาร์ทบอทเรียบร้อย" เมื่อพร้อม
+// ปุ่มอนุมัติงาน: คำสั่งเสี่ยง (ตรง APPROVAL_RULES เช่น ทั้งตลาด / git push / ลบ) หรือ "/confirm <คำสั่ง>" ยังไม่รันทันที
+//   แต่ตอบเป็น Flex Message ที่มีปุ่ม "✅ อนุมัติ (Approve)" / "❌ ปฏิเสธ (Reject)" — กดแล้ว LINE ส่ง postback event
+//   (data "action=approve|reject&id=…") กลับมา: อนุมัติ → รันทันทีหรือต่อคิว, ปฏิเสธ → ยกเลิก แล้วตอบสถานะทาง reply ทันที
+//   คำขอเก็บในหน่วยความจำ (pendingApprovals) ใช้ได้ครั้งเดียว หมดอายุใน BOT_APPROVAL_TTL_MIN นาที และถูกล้างเมื่อ /restart
 const http = require("node:http");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -18,6 +24,9 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 
 const root = path.join(__dirname, "..");
+// เก็บ env ก่อนโหลด .env.local ไว้ส่งให้ process ใหม่ตอน /restart — loadEnvFile ไม่เขียนทับค่าที่มีอยู่แล้ว
+// ถ้าส่ง process.env ปัจจุบันไป ค่าที่แก้ใน .env.local จะไม่มีผลหลังรีสตาร์ท
+const launchEnv = { ...process.env };
 for (const file of [".env.local", ".env"]) {
   const envPath = path.join(root, file);
   if (fs.existsSync(envPath)) process.loadEnvFile(envPath); // ค่าที่โหลดก่อน (.env.local) มีผลเหนือกว่า
@@ -38,6 +47,18 @@ if (missing.length > 0) {
 let job = null; // งานที่กำลังรัน — job !== null คือสถานะ isProcessing
 /** @type {{ prompt: string, queuedAt: Date }[]} */
 const taskQueue = [];
+let restarting = false; // ระหว่าง /restart ไม่รับงานใหม่และไม่หยิบงานจากคิว
+/** @type {Map<string, { prompt: string, reason: string, createdAt: Date }>} */
+const pendingApprovals = new Map(); // คำขออนุมัติที่ยังไม่ได้กดปุ่ม — key คือ id ใน postback data
+const APPROVAL_TTL_MIN = Number(process.env.BOT_APPROVAL_TTL_MIN) || 30;
+// คำสั่งที่ย้อนกลับยากตาม CLAUDE.md (push, ลบข้อมูลใน Supabase, ดึงทั้งตลาด) — ต้องกดอนุมัติก่อนรัน
+const APPROVAL_RULES = [
+  [/ทั้งตลาด|set_symbols\.csv/i, "ดึงข้อมูลทั้งตลาด (~30–40 นาที)"],
+  // จับเฉพาะ git push — "push message" ของ LINE ไม่นับ
+  [/git\s+push|push\s*(ขึ้น|to\s|origin)|พุช/i, "push ขึ้น remote"],
+  // จับเฉพาะการลบข้อมูล — "ลบปุ่ม/ลบโค้ด" ทั่วไปไม่ต้องขออนุมัติ
+  [/ลบ(ข้อมูล|ตาราง|แถว|ทั้งหมด)|delete\s+from|drop\s+table|\btruncate\b|reset\s+--hard|rm\s+-rf/i, "ลบ/เขียนทับข้อมูล"],
+];
 
 // ให้ Claude ปิดท้ายด้วยสรุปแบบ Bullet หลังตัวคั่นนี้ เพื่อแยกเป็นข้อความที่ 2
 const SUMMARY_MARKER = "===SUMMARY===";
@@ -66,6 +87,7 @@ async function callLine(endpoint, body) {
 
 // reply ใช้ replyToken (ฟรี ใช้ได้ครั้งเดียวภายในไม่กี่วินาที); push ใช้ส่งผลลัพธ์ภายหลัง (นับโควตาข้อความ)
 const reply = (replyToken, text) => callLine("reply", { replyToken, messages: [{ type: "text", text: truncate(text) }] });
+const replyMessage = (replyToken, message) => callLine("reply", { replyToken, messages: [message] });
 // push รับได้หลายข้อความ (สูงสุด 5) — ส่งพร้อมกันในครั้งเดียว ลำดับในแชทตรงตามอาร์เรย์
 const push = (...texts) =>
   callLine("push", { to: LINE_USER_ID, messages: texts.map((text) => ({ type: "text", text: truncate(text) })) });
@@ -80,6 +102,25 @@ function verifySignature(rawBody, signature) {
 function elapsed(since) {
   const sec = Math.round((Date.now() - since.getTime()) / 1000);
   return sec < 60 ? `${sec} วินาที` : `${Math.floor(sec / 60)} นาที ${sec % 60} วินาที`;
+}
+
+// ประเมินเวลาคร่าวๆ จากคำสั่ง (ไม่ต้องแม่น) — ใช้ในข้อความตอบรับ "ใช้เวลาประมาณ X นาที"
+function estimate(prompt) {
+  if (/fetch|ดึงข้อมูล|ทั้งตลาด/i.test(prompt)) return "3–5";
+  const lines = prompt.split("\n").filter((l) => l.trim()).length;
+  if (prompt.length > 300 || lines >= 4) return "5–10";
+  return "2–3";
+}
+
+// ชื่องานแบบสั้น + เวลาประเมิน เช่น "ช่วยปรับปรุงรูปแบบข้อความ… [5–10 min]" — ใช้บรรทัดแรกของคำสั่งเป็นชื่อ
+const taskLine = (prompt) => `${shorten(prompt.split("\n").find((l) => l.trim()) ?? prompt, 40)} [${estimate(prompt)} min]`;
+
+// ข้อความสถานะ (ตอบรับคำสั่งใหม่ และ /status): 2 บรรทัดแรกคืองานที่รันอยู่
+// ส่วน "งานที่รอคิว..." แสดงเฉพาะเมื่อมีงานในคิว — คิวว่างจึงเหลือแค่ 2 บรรทัด
+function statusText() {
+  const lines = ["กำลังรันงาน...", taskLine(job.prompt)];
+  if (taskQueue.length > 0) lines.push("งานที่รอคิว...", ...taskQueue.map((t, i) => `${i + 1}.${taskLine(t.prompt)}`));
+  return lines.join("\n");
 }
 
 // แยก stdout เป็น { details, bullets } ตาม SUMMARY_MARKER — ถ้า Claude ไม่ได้ใส่ตัวคั่น bullets จะว่าง
@@ -164,38 +205,182 @@ function runClaude(prompt) {
   child.on("error", (err) => finish(false, `รัน claude ไม่ได้: ${err.message}`));
 }
 
+// เหตุผลที่คำสั่งต้องขออนุมัติ — null คือรันได้ทันที
+function approvalReason(prompt) {
+  const hit = APPROVAL_RULES.find(([pattern]) => pattern.test(prompt));
+  return hit ? hit[1] : null;
+}
+
+// Flex Message ขออนุมัติ: หัวการ์ด + เหตุผล + คำสั่ง (ตัดที่ 300 ตัวอักษร) + ปุ่ม postback 2 ปุ่ม
+// displayText คือข้อความที่แสดงในแชทแทนผู้ใช้เมื่อกดปุ่ม; data ยาวได้ไม่เกิน 300 ตัวอักษร จึงส่งแค่ action + id
+function approvalFlex(id, prompt, reason) {
+  const button = (action, label, color) => ({
+    type: "button",
+    style: "primary",
+    color,
+    height: "sm",
+    action: { type: "postback", label, data: `action=${action}&id=${id}`, displayText: label },
+  });
+  return {
+    type: "flex",
+    altText: `🔐 ขออนุมัติงาน: ${shorten(prompt, 300)}`,
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#FFF4E5",
+        contents: [
+          { type: "text", text: "🔐 ขออนุมัติงาน", weight: "bold", size: "lg", color: "#B45309" },
+          { type: "text", text: reason, size: "sm", color: "#92400E", wrap: true },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+          { type: "text", text: shorten(prompt, 300), wrap: true, size: "sm" },
+          { type: "text", text: `ปุ่มหมดอายุใน ${APPROVAL_TTL_MIN} นาที`, size: "xs", color: "#888888" },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "horizontal",
+        spacing: "sm",
+        contents: [button("approve", "✅ อนุมัติ (Approve)", "#16A34A"), button("reject", "❌ ปฏิเสธ (Reject)", "#DC2626")],
+      },
+    },
+  };
+}
+
+// ส่งคำขออนุมัติแบบ Interactive — เก็บคำสั่งไว้ใน pendingApprovals จนกว่าจะกดปุ่มหรือหมดอายุ
+// ส่งทาง reply เมื่อมี replyToken (ฟรี) ไม่งั้น push (เช่นเรียกจากโค้ดส่วนอื่นที่ไม่มีข้อความผู้ใช้)
+function requestApproval(prompt, reason, replyToken) {
+  for (const [key, req] of pendingApprovals) {
+    if (Date.now() - req.createdAt.getTime() > APPROVAL_TTL_MIN * 60_000) pendingApprovals.delete(key);
+  }
+  const id = crypto.randomBytes(6).toString("hex");
+  pendingApprovals.set(id, { prompt, reason, createdAt: new Date() });
+  console.log(`ขออนุมัติ ${id} (${reason}): ${shorten(prompt)}`);
+  const message = approvalFlex(id, prompt, reason);
+  return replyToken ? replyMessage(replyToken, message) : callLine("push", { to: LINE_USER_ID, messages: [message] });
+}
+
+// รันทันทีถ้าว่าง ไม่งั้นต่อคิว — คืนข้อความสถานะ statusText() ไว้ตอบกลับ
+function startOrQueue(prompt) {
+  if (job) {
+    taskQueue.push({ prompt, queuedAt: new Date() });
+    console.log(`เข้าคิวลำดับที่ ${taskQueue.length}: ${prompt}`);
+  } else {
+    console.log(`รับคำสั่ง: ${prompt}`);
+    runClaude(prompt);
+  }
+  return statusText();
+}
+
+// postback จากปุ่มใน approvalFlex() — ใช้ได้ครั้งเดียว (ลบออกจาก pendingApprovals ก่อนทำงาน กันกดซ้ำ)
+function handleApproval(event) {
+  const params = new URLSearchParams(event.postback?.data ?? "");
+  const action = params.get("action");
+  const id = params.get("id") ?? "";
+  if (action !== "approve" && action !== "reject") return;
+  const req = pendingApprovals.get(id);
+  pendingApprovals.delete(id);
+  if (!req || Date.now() - req.createdAt.getTime() > APPROVAL_TTL_MIN * 60_000) {
+    return reply(event.replyToken, "คำขอนี้ถูกจัดการไปแล้วหรือหมดอายุ — ส่งคำสั่งใหม่อีกครั้งถ้าต้องการรัน");
+  }
+  if (action === "reject") {
+    console.log(`ปฏิเสธ ${id}: ${shorten(req.prompt)}`);
+    return reply(event.replyToken, `❌ ปฏิเสธคำสั่งแล้ว — ยกเลิกงาน\n${shorten(req.prompt, 40)}`);
+  }
+  console.log(`อนุมัติ ${id}`);
+  const queued = job !== null;
+  const status = startOrQueue(req.prompt);
+  const head = queued ? `✅ อนุมัติคำสั่งเรียบร้อย — เข้าคิวลำดับที่ ${taskQueue.length}` : "✅ อนุมัติคำสั่งเรียบร้อย กำลังดำเนินการ...";
+  return reply(event.replyToken, `${head}\n\n${status}`);
+}
+
 // หยิบงานถัดไปในคิวมารัน (ทีละงาน) จนกว่าคิวจะหมด
 function runNext() {
-  if (job) return;
+  if (job || restarting) return;
   const next = taskQueue.shift();
   if (!next) return;
   console.log(`เริ่มงานจากคิว (รอ ${elapsed(next.queuedAt)}, เหลือ ${taskQueue.length}): ${next.prompt}`);
   runClaude(next.prompt);
 }
 
+// /restart: หยุดงานที่รันอยู่ ล้างคิว ปิดพอร์ต แล้วเปิด line_bot.js ตัวใหม่ (โหลดโค้ดและ .env.local ใหม่) ก่อนออกจาก process เดิม
+// ใช้ node ตรงๆ แทน npm run bot (ไม่ผ่าน shell) และต้อง detached: บน Windows process ลูกแบบปกติอยู่ใน job object
+// ของ Node ที่ถูกฆ่าตามเมื่อ process เดิมออก — process แยกไม่มี Terminal จึงเขียน log ต่อท้ายที่ data/bot.log แทน
+// (หยุดบอทตัวใหม่ด้วย Task Manager / taskkill เพราะ Ctrl+C ใน Terminal เดิมใช้ไม่ได้แล้ว)
+// process ใหม่จะลอง listen ซ้ำถ้าพอร์ตยังไม่ว่าง และ push แจ้ง "รีสตาร์ทเรียบร้อย" เมื่อพร้อม
+const BOT_LOG = path.join(root, "data", "bot.log");
+
+function restart() {
+  restarting = true;
+  if (job) {
+    job.cancelled = true;
+    killTree(job.child);
+  }
+  taskQueue.splice(0);
+  pendingApprovals.clear();
+  server.close();
+  server.closeAllConnections();
+  console.log(`กำลังรีสตาร์ทบอท… (log ของบอทตัวใหม่อยู่ที่ ${BOT_LOG})`);
+  fs.mkdirSync(path.dirname(BOT_LOG), { recursive: true });
+  const logFd = fs.openSync(BOT_LOG, "a");
+  fs.writeSync(logFd, `\n=== รีสตาร์ท ${new Date().toLocaleString("th-TH")} ===\n`);
+  const child = spawn(process.execPath, [__filename], {
+    cwd: root,
+    env: { ...launchEnv, BOT_RESTARTED: "1" },
+    stdio: ["ignore", logFd, logFd],
+    detached: true,
+    windowsHide: true,
+  });
+  child.once("spawn", () => {
+    child.unref();
+    setTimeout(() => process.exit(0), 500); // รอ taskkill เริ่มทำงานก่อนออก
+  });
+  child.once("error", (err) => {
+    console.error("รีสตาร์ทไม่สำเร็จ:", err);
+    restarting = false;
+    listen();
+    push(`✗ รีสตาร์ทบอทไม่สำเร็จ: ${err.message} — บอทตัวเดิมยังทำงานต่อ`).catch(() => {});
+  });
+}
+
 async function handleEvent(event) {
-  if (event.type !== "message" || event.message?.type !== "text") return;
+  const isText = event.type === "message" && event.message?.type === "text";
+  if (!isText && event.type !== "postback") return;
   if (event.source?.userId !== LINE_USER_ID) {
     console.warn(`เพิกเฉยข้อความจากผู้ใช้อื่น: ${event.source?.userId}`);
     return;
   }
+  if (restarting) return reply(event.replyToken, "บอทกำลังรีสตาร์ท — ส่งคำสั่งใหม่อีกครั้งเมื่อได้ข้อความ ✅");
+  if (event.type === "postback") return handleApproval(event);
   const text = event.message.text.trim();
 
   if (text === "/help") {
     return reply(
       event.replyToken,
       "พิมพ์คำสั่งให้ Claude Code ได้เลย (รันทีละงาน ถ้าไม่ว่างจะต่อคิวให้)\n" +
-        "/status — ดูงานที่กำลังรันและคิว\n/cancel — หยุดงานที่กำลังรัน (แล้วรันงานถัดไปในคิว)\n/clear — ล้างคิวที่ยังไม่เริ่ม",
+        "/status — ดูงานที่กำลังรันและคิว\n/cancel — หยุดงานที่กำลังรัน (แล้วรันงานถัดไปในคิว)\n/clear — ล้างคิวที่ยังไม่เริ่ม\n" +
+        "/restart หรือ /reboot — รีสตาร์ทบอท (หยุดงานที่รันอยู่และล้างคิว)\n" +
+        "/confirm <คำสั่ง> — ส่งปุ่มอนุมัติก่อนรัน (คำสั่งเสี่ยง เช่น ทั้งตลาด / push / ลบ จะขออนุมัติให้อัตโนมัติ)",
     );
+  }
+  if (text === "/restart" || text === "/reboot") {
+    const dropped = [job && "หยุดงานที่กำลังรัน", taskQueue.length > 0 && `ล้างคิว ${taskQueue.length} งาน`].filter(Boolean);
+    // ส่งข้อความตอบกลับให้เสร็จก่อน แล้วค่อยรีสตาร์ท — replyToken ใช้ไม่ได้หลัง process เดิมปิด
+    await reply(event.replyToken, `🔄 กำลังรีสตาร์ทบอท...${dropped.length > 0 ? `\n(${dropped.join(", ")})` : ""}`).catch(
+      (err) => console.error("ตอบกลับ /restart ล้มเหลว:", err),
+    );
+    return restart();
   }
   if (text === "/status") {
     if (!job) return reply(event.replyToken, "ว่าง — ไม่มีงานที่กำลังรัน");
-    const queued = taskQueue.map((t, i) => `${i + 1}. ${shorten(t.prompt)} (รอ ${elapsed(t.queuedAt)})`);
-    return reply(
-      event.replyToken,
-      `กำลังรัน (${elapsed(job.startedAt)}):\n${job.prompt}\n\nคิว ${taskQueue.length} งาน` +
-        (queued.length > 0 ? `\n${queued.join("\n")}` : ""),
-    );
+    return reply(event.replyToken, statusText());
   }
   if (text === "/cancel") {
     if (!job) return reply(event.replyToken, "ไม่มีงานที่กำลังรัน");
@@ -207,16 +392,14 @@ async function handleEvent(event) {
     const count = taskQueue.splice(0).length;
     return reply(event.replyToken, count > 0 ? `ล้างคิวแล้ว ${count} งาน (งานที่กำลังรันยังทำต่อ)` : "คิวว่างอยู่แล้ว");
   }
-  // ตอบรับสั้นๆ 1 ข้อความทาง reply (ฟรี) — ผลลัพธ์จริงส่งภายหลังเป็น 2 ข้อความทาง push
-  if (job) {
-    taskQueue.push({ prompt: text, queuedAt: new Date() });
-    console.log(`เข้าคิวลำดับที่ ${taskQueue.length}: ${text}`);
-    return reply(event.replyToken, `📥 รับคำสั่งเข้าคิวแล้ว — ลำดับที่ ${taskQueue.length}`);
-  }
+  const confirm = text.match(/^\/confirm\s+([\s\S]+)/);
+  if (text === "/confirm") return reply(event.replyToken, "ใช้: /confirm <คำสั่ง>");
+  if (confirm) return requestApproval(confirm[1].trim(), "ขออนุมัติตามคำสั่ง /confirm", event.replyToken);
+  const reason = approvalReason(text);
+  if (reason) return requestApproval(text, `คำสั่งเสี่ยง: ${reason}`, event.replyToken);
 
-  console.log(`รับคำสั่ง: ${text}`);
-  runClaude(text);
-  return reply(event.replyToken, "⏳ กำลังรันงาน…");
+  // ตอบรับสั้นๆ 1 ข้อความทาง reply (ฟรี) ด้วย statusText() — ผลลัพธ์จริงส่งภายหลังเป็น 2 ข้อความทาง push
+  return reply(event.replyToken, startOrQueue(text));
 }
 
 const server = http.createServer((req, res) => {
@@ -251,7 +434,32 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+// BOT_RESTARTED=1 มาจาก restart() — ลบออกไม่ให้ส่งต่อไปยัง claude ที่ bot รัน
+const restarted = process.env.BOT_RESTARTED === "1";
+delete process.env.BOT_RESTARTED;
+
+// หลัง /restart พอร์ตของ process เดิมอาจยังไม่ว่างทันที — ลองใหม่ทุก 1 วินาที สูงสุด 15 ครั้ง
+let listenAttempts = 0;
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE" && ++listenAttempts < 15) {
+    setTimeout(listen, 1000);
+    return;
+  }
+  console.error("เปิดพอร์ตไม่ได้:", err.message);
+  process.exit(1);
+});
+server.on("listening", () => {
+  listenAttempts = 0;
   console.log(`LINE bot พร้อมที่ http://localhost:${PORT}/webhook`);
   console.log(`เปิดสู่อินเทอร์เน็ตด้วย: ngrok http ${PORT}`);
 });
+function listen() {
+  server.listen(PORT);
+}
+
+listen();
+if (restarted) {
+  server.once("listening", () =>
+    push("✅ รีสตาร์ทบอทเรียบร้อย พร้อมรับคำสั่ง").catch((err) => console.error("แจ้งผลรีสตาร์ทล้มเหลว:", err)),
+  );
+}
